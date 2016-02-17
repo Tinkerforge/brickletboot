@@ -1,5 +1,7 @@
-GPS V2 Bricklet
-===============
+GPS Bricklet 2.0
+================
+
+**This Bricklet is currently in development**
 
 This repository contains the firmware source code and the hardware design
 files. The documentation generator configs can be found at
