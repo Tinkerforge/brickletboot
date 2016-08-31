@@ -1,7 +1,7 @@
-/* gps-v2-bricklet
+/* brickletboot
  * Copyright (C) 2016 Olaf Lüke <olaf@tinkerforge.com>
  *
- * config_logging.c: Logging configuration for GPS Bricklet 2.0
+ * config_spitfp.h: SPITFP protocol configuration
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -19,22 +19,20 @@
  * Boston, MA 02111-1307, USA.
  */
 
-#ifndef CONFIG_LOGGING_H
-#define CONFIG_LOGGING_H
+#ifndef CONFIG_SPITFP_H
+#define CONFIG_SPITFP_H
 
-#define LOGGING_SERIAL
-#define LOGGING_LEVEL LOGGING_DEBUG
-//#define LOGGING_LEVEL LOGGING_NONE
+#define SPITFP_SPI_MODULE             SERCOM0
+#define SPITFP_SPI_SIGNALMUX_SETTING  SPI_SIGNAL_MUX_SETTING_I
 
-#include "spi.h" // PINMUX_UNUSED
+#define SPITFP_PINMUX_PAD0            PINMUX_PA04D_SERCOM0_PAD0 // MOSI
+#define SPITFP_PINMUX_PAD1            PINMUX_PA05D_SERCOM0_PAD1 // CLK
+#define SPITFP_PINMUX_PAD2            PINMUX_PA06D_SERCOM0_PAD2 // SS
+#define SPITFP_PINMUX_PAD3            PINMUX_PA07D_SERCOM0_PAD3 // MISO
 
+#define SPITFP_PERIPHERAL_TRIGGER_TX  SERCOM0_DMAC_ID_TX
+#define SPITFP_PERIPHERAL_TRIGGER_RX  SERCOM0_DMAC_ID_RX
 
-#define LOGGING_BAUDRATE    115200
-#define LOGGING_MUX_SETTING USART_RX_0_TX_2_XCK_3
-#define LOGGING_PINMUX_PAD0 PINMUX_UNUSED
-#define LOGGING_PINMUX_PAD1 PINMUX_UNUSED
-#define LOGGING_PINMUX_PAD2 PINMUX_PA16C_SERCOM1_PAD2
-#define LOGGING_PINMUX_PAD3 PINMUX_UNUSED
-#define LOGGING_SERCOM      SERCOM1
+#define SPITFP_RECEIVE_BUFFER_SIZE    1024
 
 #endif

@@ -1,7 +1,7 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 2.4)
 
-SET(PROJECT_NAME gps-v2-bricklet)
-SET(CHIP_FAMILY sam0)
+SET(PROJECT_NAME brickletboot)
+SET(CHIP_FAMILY SAM0)
 SET(CHIP SAMD09D14A)
 SET(MCU cortex-m0plus\ -mthumb)
 PROJECT(${PROJECT_NAME})
@@ -25,10 +25,17 @@ INCLUDE_DIRECTORIES(
 # find source files
 SET(SOURCES
 	"${PROJECT_SOURCE_DIR}/src/main.c"
+	"${PROJECT_SOURCE_DIR}/src/bootloader_spitfp.c"
+	"${PROJECT_SOURCE_DIR}/src/tfp_common.c"
+	"${PROJECT_SOURCE_DIR}/src/tinydma.c"
+	"${PROJECT_SOURCE_DIR}/src/bricklib2/protocols/tfp/tfp.c"
 	"${PROJECT_SOURCE_DIR}/src/bricklib2/logging/logging.c"
+	"${PROJECT_SOURCE_DIR}/src/bricklib2/utility/ringbuffer.c"
+	"${PROJECT_SOURCE_DIR}/src/bricklib2/utility/pearson_hash.c"
 	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/common/utils/interrupt/interrupt_sam_nvic.c"
 	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/drivers/port/port.c"
 	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/drivers/wdt/wdt.c"
+	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/drivers/nvm/nvm.c"
 	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/drivers/system/clock/clock_samd09_d10_d11/clock.c"
 	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/drivers/system/clock/clock_samd09_d10_d11/gclk.c"
 	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/drivers/system/interrupt/system_interrupt.c"
@@ -39,8 +46,11 @@ SET(SOURCES
 	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/utils/syscalls/gcc/syscalls.c"
 	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/drivers/sercom/usart/usart.c"
 	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/drivers/sercom/sercom.c"
+	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/drivers/sercom/spi/spi.c"
 	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/common/utils/stdio/write.c"
 	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/common/utils/stdio/read.c"
+	
+	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/common/services/crc32/crc32.c"
 )
 
 MESSAGE(STATUS "\nFound following source files:\n ${SOURCES}\n")
@@ -58,7 +68,7 @@ SET_TARGET_PROPERTIES(${PROJECT_NAME}.elf PROPERTIES COMPILE_FLAGS
 
 #define linker flags
 SET_TARGET_PROPERTIES(${PROJECT_NAME}.elf PROPERTIES LINK_FLAGS
-	"-mcpu=${MCU} -Wl,--gc-sections -T\"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/utils/linker_scripts/samd09/gcc/samd09d14a_flash.ld\" "
+	"-mcpu=${MCU} -Wl,--gc-sections -T\"${PROJECT_SOURCE_DIR}/src/brickletboot.ld\" "
 )
 
 ADD_CUSTOM_COMMAND(TARGET ${PROJECT_NAME}.elf POST_BUILD COMMAND 
@@ -70,4 +80,4 @@ ADD_CUSTOM_COMMAND(TARGET ${PROJECT_NAME}.elf POST_BUILD COMMAND
                    ${OBJECT} ${PROJECT_NAME}.elf)
 
 # add preprocessor defines
-ADD_DEFINITIONS(-D__${CHIP}__ -D__CHIP__=${CHIP} -D__CHIP_FAMILY__=${CHIP_FAMILY} -Dflash -Dprintf=iprintf) 
+ADD_DEFINITIONS(-D__${CHIP}__ -D__${CHIP_FAMILY}__ -Dflash -Dprintf=iprintf) 

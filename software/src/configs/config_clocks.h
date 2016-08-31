@@ -1,7 +1,7 @@
-/* gps-v2-bricklet
+/* brickboot
  * Copyright (C) 2016 Olaf Lüke <olaf@tinkerforge.com>
  *
- * config_clocks.c: Clock configuration for GPS Bricklet 2.0
+ * config_clocks.h: Clock configuration
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -137,7 +137,7 @@
 #define CONF_CLOCK_GCLK_2_ENABLE                true
 #define CONF_CLOCK_GCLK_2_RUN_IN_STANDBY        false
 #define CONF_CLOCK_GCLK_2_CLOCK_SOURCE          SYSTEM_CLOCK_SOURCE_OSC32K
-#define CONF_CLOCK_GCLK_2_PRESCALER             2
+#define CONF_CLOCK_GCLK_2_PRESCALER             1
 #define CONF_CLOCK_GCLK_2_OUTPUT_ENABLE         false
 
 /* Configure GCLK generator 3 */

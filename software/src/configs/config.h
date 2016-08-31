@@ -1,7 +1,7 @@
-/* gps-v2-bricklet
+/* brickletboot
  * Copyright (C) 2016 Olaf Lüke <olaf@tinkerforge.com>
  *
- * config.c: All configurations for GPS Bricklet 2.0
+ * config.c: All configurations for brickletboot
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -24,7 +24,12 @@
 
 #define LED0_PIN                  PIN_PA09
 
+#define BRICKLET_BOOT_VERSION     "1.0"
+
 #include "config_clocks.h"
+#include "config_dma.h"
 #include "config_logging.h"
+#include "config_spi.h"
+#include "config_spitfp.h"
 
 #endif

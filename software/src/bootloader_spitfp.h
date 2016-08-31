@@ -1,7 +1,7 @@
-/* gps-v2-bricklet
- * Copyright (C) 2016 Olaf Lüke <olaf@tinkerforge.com>
+/* brickletboot
+ * Copyright (C) 2010 Olaf Lüke <olaf@tinkerforge.com>
  *
- * config_logging.c: Logging configuration for GPS Bricklet 2.0
+ * spitfp.h: Tinkerforge Protocol (TFP) over SPI implementation
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -19,22 +19,23 @@
  * Boston, MA 02111-1307, USA.
  */
 
-#ifndef CONFIG_LOGGING_H
-#define CONFIG_LOGGING_H
+#ifndef BOOTLOADER_SPITFP_H
+#define BOOTLOADER_SPITFP_H
 
-#define LOGGING_SERIAL
-#define LOGGING_LEVEL LOGGING_DEBUG
-//#define LOGGING_LEVEL LOGGING_NONE
+#include "configs/config_spitfp.h"
 
-#include "spi.h" // PINMUX_UNUSED
+#include "tinydma.h"
+#include "spi.h"
+#include "bricklib2/utility/ringbuffer.h"
+#include "bricklib2/protocols/tfp/tfp.h"
+#include "bricklib2/protocols/spitfp/spitfp.h"
+#include "bricklib2/bootloader/bootloader.h"
 
 
-#define LOGGING_BAUDRATE    115200
-#define LOGGING_MUX_SETTING USART_RX_0_TX_2_XCK_3
-#define LOGGING_PINMUX_PAD0 PINMUX_UNUSED
-#define LOGGING_PINMUX_PAD1 PINMUX_UNUSED
-#define LOGGING_PINMUX_PAD2 PINMUX_PA16C_SERCOM1_PAD2
-#define LOGGING_PINMUX_PAD3 PINMUX_UNUSED
-#define LOGGING_SERCOM      SERCOM1
+
+void spitfp_init(SPITFP *st);
+void spitfp_tick(BootloaderStatus *bootloader_status);
+void spitfp_send_ack_and_message(SPITFP *st, uint8_t *data, const uint8_t length);
+void spitfp_send_ack(SPITFP *st);
 
 #endif

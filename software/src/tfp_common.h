@@ -1,7 +1,7 @@
-/* gps-v2-bricklet
+/* brickletboot
  * Copyright (C) 2016 Olaf Lüke <olaf@tinkerforge.com>
  *
- * config_logging.c: Logging configuration for GPS Bricklet 2.0
+ * tfp_common.h: Tinkerforge Protocol (TFP) common messages
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -19,22 +19,14 @@
  * Boston, MA 02111-1307, USA.
  */
 
-#ifndef CONFIG_LOGGING_H
-#define CONFIG_LOGGING_H
+#ifndef TFP_COMMON_H
+#define TFP_COMMON_H
 
-#define LOGGING_SERIAL
-#define LOGGING_LEVEL LOGGING_DEBUG
-//#define LOGGING_LEVEL LOGGING_NONE
+#include <stdbool.h>
 
-#include "spi.h" // PINMUX_UNUSED
+#include "bootloader_spitfp.h"
+#include "bricklib2/protocols/tfp/tfp.h"
 
-
-#define LOGGING_BAUDRATE    115200
-#define LOGGING_MUX_SETTING USART_RX_0_TX_2_XCK_3
-#define LOGGING_PINMUX_PAD0 PINMUX_UNUSED
-#define LOGGING_PINMUX_PAD1 PINMUX_UNUSED
-#define LOGGING_PINMUX_PAD2 PINMUX_PA16C_SERCOM1_PAD2
-#define LOGGING_PINMUX_PAD3 PINMUX_UNUSED
-#define LOGGING_SERCOM      SERCOM1
+void tfp_common_handle_message(const void *message, const uint8_t length, BootloaderStatus *bs);
 
 #endif
