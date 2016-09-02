@@ -22,7 +22,7 @@
 #ifndef CONFIG_SPI_H
 #define CONFIG_SPI_H
 
-#define CONF_SPI_SLAVE_ENABLE true
-#define CONF_SPI_MASTER_ENABLE false
+// This is defined by firmware we get it directly from the config
+#include "configs/config.h"
 
 #endif
