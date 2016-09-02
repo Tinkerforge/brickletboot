@@ -24,9 +24,12 @@
 #include "dsu_crc32.h"
 #include "bootloader_spitfp.h"
 
-__attribute__ ((section(".firmware_entry_func"))) void firmware_entry(BootloaderFunctions *bf) {
+// Sets functions that can be used by firmware and initializes spitfp state machine
+__attribute__ ((section(".firmware_entry_func"))) void firmware_entry(BootloaderFunctions *bf, BootloaderStatus *bs) {
 	bf->spitfp_tick = spitfp_tick;
 	bf->spitfp_send_ack_and_message = spitfp_send_ack_and_message;
 	bf->spitfp_is_send_possible = spitfp_is_send_possible;
 	bf->dsu_crc32_cal = dsu_crc32_cal;
+
+	spitfp_init(&bs->st);
 }
