@@ -70,7 +70,7 @@ SET_TARGET_PROPERTIES(${PROJECT_NAME}.elf PROPERTIES COMPILE_FLAGS
 
 #define linker flags
 SET_TARGET_PROPERTIES(${PROJECT_NAME}.elf PROPERTIES LINK_FLAGS
-	"-mcpu=${MCU} -Wl,--gc-sections -T\"${PROJECT_SOURCE_DIR}/src/brickletboot.ld\" "
+	"-mcpu=${MCU} -Wl,--gc-sections -T\"${PROJECT_SOURCE_DIR}/src/bricklib2/linker_script/samd09_brickletboot.ld\" "
 )
 
 ADD_CUSTOM_COMMAND(TARGET ${PROJECT_NAME}.elf POST_BUILD COMMAND 
@@ -80,6 +80,18 @@ ADD_CUSTOM_COMMAND(TARGET ${PROJECT_NAME}.elf POST_BUILD COMMAND
 ADD_CUSTOM_COMMAND(TARGET ${PROJECT_NAME}.elf POST_BUILD COMMAND 
                    ${CMAKE_SIZE} 
                    ${OBJECT} ${PROJECT_NAME}.elf)
+                   
+ADD_CUSTOM_COMMAND(TARGET ${PROJECT_NAME}.elf POST_BUILD COMMAND 
+                   ${PROJECT_SOURCE_DIR}/src/bricklib2/bootloader/crc32.py
+                   ${PROJECT_NAME}.bin > ${PROJECT_NAME}-checksum.bin)
+                   
+ADD_CUSTOM_COMMAND(TARGET ${PROJECT_NAME}.elf POST_BUILD COMMAND 
+                   cat
+                   ${PROJECT_NAME}.bin ${PROJECT_NAME}-checksum.bin > ${PROJECT_NAME}-with-checksum.bin)
 
 # add preprocessor defines
-ADD_DEFINITIONS(-D__${CHIP}__ -D__${CHIP_FAMILY}__ -Dflash -Dprintf=iprintf) 
+ADD_DEFINITIONS(-D__${CHIP}__ -D__${CHIP_FAMILY}__ -Dflash -Dprintf=iprintf)
+ 
+if(EXISTS "${PROJECT_SOURCE_DIR}/src/configs/config_custom_bootloader.h")
+ADD_DEFINITIONS(-DUSE_CUSTOM_BOOTLOADER)
+endif()
