@@ -28,7 +28,9 @@
 #include "config_default_bootloader.h"
 #endif
 
-#define BRICKLETBOOT_VERSION           "1.0"
+#define BOOTLOADER_VERSION_MAJOR 1
+#define BOOTLOADER_VERSION_MINOR 0
+#define BOOTLOADER_VERSION_REVISION 0
 
 #include "config_clocks.h"
 #include "config_logging.h"
