@@ -39,14 +39,13 @@ uint32_t boot_calculate_firmware_crc(void) {
 	PM->APBBMASK.reg |= PM_APBBMASK_DSU;
 
 	uint32_t crc = 0xFFFFFFFF;
-	dsu_crc32_cal((const uint32_t)BOOTLOADER_FIRMWARE_START_POS, BOOTLOADER_FIRMWARE_SIZE, &crc);
+	dsu_crc32_cal((const uint32_t)BOOTLOADER_FIRMWARE_START_POS, BOOTLOADER_FIRMWARE_SIZE - BOOTLOADER_FIRMWARE_CRC_SIZE, &crc);
 
 	return ~crc;
 }
 
 // We use the relevant TFP_COMMON return values here
 uint8_t boot_can_jump_to_firmware(void) {
-	return 1;
 	// Check first 4 bytes, if in bootloader mode they will be all ones
 	if(BOOTLOADER_FIRMWARE_FIRST_BYTES == BOOTLOADER_FIRMWARE_FIRST_BYTES_DEFAULT) {
 		return TFP_COMMON_SET_BOOTLOADER_MODE_STATUS_ENTRY_FUNCTION_NOT_PRESENT;
