@@ -56,11 +56,14 @@ For Bricklets with co-processor we use the following flash memory map
 #include "bricklib2/logging/logging.h"
 #include "configs/config.h"
 
+const uint32_t device_identifier __attribute__ ((section(".device_identifier"))) = BOOTLOADER_DEVICE_IDENTIFIER;
+const uint32_t bootloader_version __attribute__ ((section(".bootloader_version"))) = (BOOTLOADER_VERSION_MAJOR << 16) | (BOOTLOADER_VERSION_MINOR << 8) | (BOOTLOADER_VERSION_REVISION << 0);
+
 static void configure_nvm(void) {
 	struct nvm_config config_nvm;
-
 	nvm_get_config_defaults(&config_nvm);
 	config_nvm.manual_page_write = false;
+
 	nvm_set_config(&config_nvm);
 }
 
@@ -71,6 +74,7 @@ static void configure_wdt(void) {
 	wdt_config.enable = false; // TODO: Remove me
 	wdt_config.clock_source = GCLK_GENERATOR_2;
 	wdt_config.timeout_period = WDT_PERIOD_16384CLK; // This should be ~1s
+
 	wdt_set_config(&wdt_config);
 
 //	wdt_reset_count();
@@ -132,18 +136,19 @@ int main() {
 	// Jump to firmware if we can
 	const uint8_t can_jump_to_firmware = boot_can_jump_to_firmware();
 	if(can_jump_to_firmware == TFP_COMMON_SET_BOOTLOADER_MODE_STATUS_OK) {
+		PORT->Group[0].OUTCLR.reg = (1 << BOOTLOADER_STATUS_LED_PIN); // Turn LED on by default for firmware
 		boot_jump_to_firmware();
 	}
 
 #if LOGGING_LEVEL != LOGGING_NONE
 	logging_init();
-	logi("Starting brickletboot (version " BRICKLETBOOT_VERSION ")\n\r");
+	logi("Starting brickletboot (version %d.%d.%d)\n\r", BOOTLOADER_VERSION_MAJOR, BOOTLOADER_VERSION_MINOR, BOOTLOADER_VERSION_REVISION);
 	logi("Compiled on " __DATE__ " " __TIME__ "\n\r");
 #endif
 
 	// We can't jump to firmware, so lets enter bootloader mode
 	bootloader_status.boot_mode = BOOT_MODE_BOOTLOADER;
-	bootloader_status.status_led_config = 1;
+	bootloader_status.status_led_config = 0;
 	bootloader_status.st.descriptor_section = tinydma_get_descriptor_section();
 	bootloader_status.st.write_back_section = tinydma_get_write_back_section();
 
