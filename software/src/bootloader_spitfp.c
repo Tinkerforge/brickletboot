@@ -68,58 +68,10 @@ Protocol information:
 #include "bricklib2/utility/pearson_hash.h"
 #include "bricklib2/logging/logging.h"
 
-#define SPITFP_MIN_TFP_MESSAGE_LENGTH 8
-#define SPITFP_MAX_TFP_MESSAGE_LENGTH 80
+#define SPITFP_MIN_TFP_MESSAGE_LENGTH (TFP_MESSAGE_MIN_LENGTH + SPITFP_PROTOCOL_OVERHEAD)
+#define SPITFP_MAX_TFP_MESSAGE_LENGTH (TFP_MESSAGE_MAX_LENGTH + SPITFP_PROTOCOL_OVERHEAD)
 
-#define SPITFP_DMA_BUFFER_COUNT(i) ((*(uint32_t*)(DMAC->WRBADDR.bit.WRBADDR + i*0x10)) >> 16)
 static const uint8_t spitfp_dummy_tx_byte = 0;
-
-#define DESCRIPTOR_SECTION_RX_INDEX 0
-#define DESCRIPTOR_SECTION_TX_INDEX 1
-
-COMPILER_ALIGNED(16)
-static DmacDescriptor descriptor_section[CONF_MAX_USED_CHANNEL_NUM] SECTION_DMAC_DESCRIPTOR;
-
-COMPILER_ALIGNED(16)
-static DmacDescriptor write_back_section[CONF_MAX_USED_CHANNEL_NUM] SECTION_DMAC_DESCRIPTOR;
-
-
-void DMAC_Handler(void) {
-	logd("-D-\n\r");
-	system_interrupt_enter_critical_section();
-
-	// Get Pending channel
-	const uint8_t active_channel =  DMAC->INTPEND.reg & DMAC_INTPEND_ID_Msk;
-
-	// Select the active channel
-	DMAC->CHID.reg = DMAC_CHID_ID(active_channel);
-
-	// Calculate block transfer size of the DMA transfer
-	// total_size = descriptor_section[resource->channel_id].BTCNT.reg;
-	// write_size = write_back_section[resource->channel_id].BTCNT.reg;
-
-	// DMA channel interrupt handler
-	const uint8_t isr = DMAC->CHINTFLAG.reg;
-	if(isr & DMAC_CHINTENCLR_TERR) {
-		// Clear transfer error flag
-		DMAC->CHINTFLAG.reg = DMAC_CHINTENCLR_TERR;
-	} else if(isr & DMAC_CHINTENCLR_TCMPL) {
-		// Clear the transfer complete flag
-		DMAC->CHINTFLAG.reg = DMAC_CHINTENCLR_TCMPL;
-
-		if(active_channel == DESCRIPTOR_SECTION_TX_INDEX) {
-			if(descriptor_section[DESCRIPTOR_SECTION_TX_INDEX].DESCADDR.reg != (uint32_t)&descriptor_section[DESCRIPTOR_SECTION_TX_INDEX]) {
-				descriptor_section[DESCRIPTOR_SECTION_TX_INDEX].DESCADDR.reg = (uint32_t)&descriptor_section[DESCRIPTOR_SECTION_TX_INDEX];
-				DMAC->CHINTENCLR.reg = DMAC_CHINTENCLR_TCMPL;
-			}
-		}
-	} else if(isr & DMAC_CHINTENCLR_SUSP) {
-		// Clear channel suspend flag
-		DMAC->CHINTFLAG.reg = DMAC_CHINTENCLR_SUSP;
-	}
-
-	system_interrupt_leave_critical_section();
-}
 
 void spitfp_init(SPITFP *st) {
 	st->last_sequence_number_seen = 0;
@@ -128,8 +80,8 @@ void spitfp_init(SPITFP *st) {
 	// Configure ring buffer
 	memset(&st->buffer_recv, 0, SPITFP_RECEIVE_BUFFER_SIZE);
 	ringbuffer_init(&st->ringbuffer_recv, SPITFP_RECEIVE_BUFFER_SIZE, st->buffer_recv);
-	st->descriptor_rx_loop = &descriptor_section[DESCRIPTOR_SECTION_RX_INDEX];
-	st->descriptor_tx_loop = &descriptor_section[DESCRIPTOR_SECTION_TX_INDEX];
+	st->descriptor_rx_loop = &st->descriptor_section[TINYDMA_SPITFP_RX_INDEX];
+	st->descriptor_tx_loop = &st->descriptor_section[TINYDMA_SPITFP_TX_INDEX];
 
 	// Configure and enable SERCOM SPI module
 	struct spi_config spitfp_spi_config;
@@ -150,37 +102,35 @@ void spitfp_init(SPITFP *st) {
 	spi_init(&st->spi_module, SPITFP_SPI_MODULE, &spitfp_spi_config);
 	spi_enable(&st->spi_module);
 
-	tinydma_init(descriptor_section, write_back_section);
+	tinydma_init(st->descriptor_section, st->write_back_section);
 
-	struct dma_resource_config spitfp_resource_config_rx;
-	dma_get_config_defaults(&spitfp_resource_config_rx);
-	spitfp_resource_config_rx.peripheral_trigger = SPITFP_PERIPHERAL_TRIGGER_RX;
-	spitfp_resource_config_rx.trigger_action = DMA_TRIGGER_ACTION_BEAT;
-	dma_allocate(&st->resource_rx, &spitfp_resource_config_rx);
-
+	TinyDmaChannelConfig spitfp_channel_config_rx;
+	tinydma_get_channel_config_defaults(&spitfp_channel_config_rx);
+	spitfp_channel_config_rx.peripheral_trigger = SPITFP_PERIPHERAL_TRIGGER_RX;
+	spitfp_channel_config_rx.trigger_action = DMA_TRIGGER_ACTION_BEAT;
+	tinydma_channel_init(TINYDMA_SPITFP_RX_INDEX, &spitfp_channel_config_rx);
 
 	// Configure SPI tx and rx resources
-	struct dma_resource_config spitfp_resource_config_tx;
-	dma_get_config_defaults(&spitfp_resource_config_tx);
-	spitfp_resource_config_tx.peripheral_trigger = SPITFP_PERIPHERAL_TRIGGER_TX;
-	spitfp_resource_config_tx.trigger_action = DMA_TRIGGER_ACTION_BEAT;
-	dma_allocate(&st->resource_tx, &spitfp_resource_config_tx);
-
+	TinyDmaChannelConfig spitfp_channel_config_tx;
+	tinydma_get_channel_config_defaults(&spitfp_channel_config_tx);
+	spitfp_channel_config_tx.peripheral_trigger = SPITFP_PERIPHERAL_TRIGGER_TX;
+	spitfp_channel_config_tx.trigger_action = DMA_TRIGGER_ACTION_BEAT;
+	tinydma_channel_init(TINYDMA_SPITFP_TX_INDEX, &spitfp_channel_config_tx);
 
 	// Configure SPI rx descriptor
-	struct dma_descriptor_config spitfp_descriptor_config_rx;
-	dma_descriptor_get_config_defaults(&spitfp_descriptor_config_rx);
+	TinyDmaDescriptorConfig spitfp_descriptor_config_rx;
+	tinydma_descriptor_get_config_defaults(&spitfp_descriptor_config_rx);
 	spitfp_descriptor_config_rx.beat_size = DMA_BEAT_SIZE_BYTE;
 	spitfp_descriptor_config_rx.src_increment_enable = false;
 	spitfp_descriptor_config_rx.block_transfer_count = SPITFP_RECEIVE_BUFFER_SIZE;
 	spitfp_descriptor_config_rx.destination_address = (uint32_t)(st->buffer_recv + SPITFP_RECEIVE_BUFFER_SIZE);
 	spitfp_descriptor_config_rx.source_address = (uint32_t)(&st->spi_module.hw->SPI.DATA.reg);
 	spitfp_descriptor_config_rx.next_descriptor_address = (uint32_t)st->descriptor_rx_loop;
-	dma_descriptor_create(st->descriptor_rx_loop, &spitfp_descriptor_config_rx);
+	tinydma_descriptor_init(st->descriptor_rx_loop, &spitfp_descriptor_config_rx);
 
 	// Configure SPI tx descriptor
-	struct dma_descriptor_config spitfp_descriptor_config_tx;
-	dma_descriptor_get_config_defaults(&spitfp_descriptor_config_tx);
+	TinyDmaDescriptorConfig spitfp_descriptor_config_tx;
+	tinydma_descriptor_get_config_defaults(&spitfp_descriptor_config_tx);
 	spitfp_descriptor_config_tx.beat_size = DMA_BEAT_SIZE_BYTE;
 	spitfp_descriptor_config_tx.dst_increment_enable = false;
 	spitfp_descriptor_config_tx.src_increment_enable = false;
@@ -189,40 +139,28 @@ void spitfp_init(SPITFP *st) {
 	spitfp_descriptor_config_tx.source_address = (uint32_t)&spitfp_dummy_tx_byte;
 	spitfp_descriptor_config_tx.destination_address = (uint32_t)(&st->spi_module.hw->SPI.DATA.reg);
 	spitfp_descriptor_config_tx.next_descriptor_address = (uint32_t)st->descriptor_tx_loop;
-	dma_descriptor_create(st->descriptor_tx_loop, &spitfp_descriptor_config_tx);
+	tinydma_descriptor_init(st->descriptor_tx_loop, &spitfp_descriptor_config_tx);
 
 	// Configure SPI ACK descriptor
-	struct dma_descriptor_config spitfp_descriptor_config_ack;
-	dma_descriptor_get_config_defaults(&spitfp_descriptor_config_ack);
+	TinyDmaDescriptorConfig spitfp_descriptor_config_ack;
+	tinydma_descriptor_get_config_defaults(&spitfp_descriptor_config_ack);
 	spitfp_descriptor_config_ack.beat_size = DMA_BEAT_SIZE_BYTE;
 	spitfp_descriptor_config_ack.dst_increment_enable = false;
 	spitfp_descriptor_config_ack.block_transfer_count = SPITFP_PROTOCOL_OVERHEAD;
 	spitfp_descriptor_config_ack.source_address = (uint32_t)(st->buffer_send + SPITFP_PROTOCOL_OVERHEAD);
 	spitfp_descriptor_config_ack.destination_address = (uint32_t)(&st->spi_module.hw->SPI.DATA.reg);
 	spitfp_descriptor_config_ack.next_descriptor_address = (uint32_t)st->descriptor_tx_loop;
-	dma_descriptor_create(&st->descriptor_tx, &spitfp_descriptor_config_ack);
-
-	// Add "ring buffer style" rx descriptor
-	dma_add_descriptor(&st->resource_rx, st->descriptor_rx_loop);
-	dma_add_descriptor(&st->resource_tx, st->descriptor_tx_loop);
+	tinydma_descriptor_init(&st->descriptor_tx, &spitfp_descriptor_config_ack);
 
 	// Start dma transfer for rx resource
-	tinydma_start_transfer(DESCRIPTOR_SECTION_RX_INDEX);
-	tinydma_start_transfer(DESCRIPTOR_SECTION_TX_INDEX);
+	tinydma_start_transfer(TINYDMA_SPITFP_RX_INDEX);
+	tinydma_start_transfer(TINYDMA_SPITFP_TX_INDEX);
 }
 
-uint32_t counter = 0;
 void spitfp_update_ringbuffer_pointer(SPITFP *st) {
-	int16_t new_end = SPITFP_RECEIVE_BUFFER_SIZE - SPITFP_DMA_BUFFER_COUNT(DESCRIPTOR_SECTION_RX_INDEX) - 1;
+	int16_t new_end = SPITFP_RECEIVE_BUFFER_SIZE - TINYDMA_CURRENT_BUFFER_COUNT_FOR_CHANNEL(TINYDMA_SPITFP_RX_INDEX) - 1;
 	if(new_end == -1) {
 		new_end = SPITFP_RECEIVE_BUFFER_SIZE - 1;
-	}
-
-	if(st->ringbuffer_recv.end != new_end) {
-		counter++;
-		if(counter >= 100) {
-			counter = 0;
-		}
 	}
 
 	st->ringbuffer_recv.end = new_end;
@@ -240,12 +178,13 @@ uint8_t spitfp_get_sequence_byte(SPITFP *st, const bool increase) {
 }
 
 void spitfp_enable_tx_dma(SPITFP *st) {
-	system_interrupt_enter_critical_section();
-	DMAC->CHID.reg = DMAC_CHID_ID(DESCRIPTOR_SECTION_TX_INDEX); // Select tx channel
+	logd("spitfp_enable_tx_dma\n\r");
+	cpu_irq_disable();
+	DMAC->CHID.reg = DMAC_CHID_ID(TINYDMA_SPITFP_TX_INDEX); // Select tx channel
 	DMAC->CHINTFLAG.reg = DMAC_CHINTFLAG_TCMPL; // Clear pending interrupts
 	DMAC->CHINTENSET.reg = DMAC_CHINTENSET_TCMPL; // Enable transfer complete interrupt
 	st->descriptor_tx_loop->DESCADDR.reg = (uint32_t)&st->descriptor_tx; // Set next descriptor to ACK
-	system_interrupt_leave_critical_section();
+	cpu_irq_enable();
 }
 
 void spitfp_send_ack_and_message(SPITFP *st, uint8_t *data, const uint8_t length) {
@@ -294,14 +233,13 @@ void spitfp_send_ack(SPITFP *st) {
 	spitfp_enable_tx_dma(st);
 }
 
-// TODO: Implement me!
 bool spitfp_is_send_possible(SPITFP *st) {
-	return descriptor_section[DESCRIPTOR_SECTION_TX_INDEX].DESCADDR.reg == (uint32_t)&descriptor_section[DESCRIPTOR_SECTION_TX_INDEX];
+	return st->descriptor_section[TINYDMA_SPITFP_TX_INDEX].DESCADDR.reg == (uint32_t)&st->descriptor_section[TINYDMA_SPITFP_TX_INDEX];
 }
 
 void spitfp_tick(BootloaderStatus *bootloader_status) {
 	SPITFP *st = &bootloader_status->st;
-	uint8_t message[SPITFP_MAX_TFP_MESSAGE_LENGTH] = {0};
+	uint8_t message[TFP_MESSAGE_MAX_LENGTH] = {0};
 	uint8_t message_position = 0;
 	uint16_t num_to_remove_from_ringbuffer = 0;
 	uint8_t checksum = 0;

@@ -22,6 +22,11 @@
 #ifndef CONFIG_DMA_H
 #define CONFIG_DMA_H
 
-#define CONF_MAX_USED_CHANNEL_NUM     2
+#define TINYDMA_MAX_USED_CHANNEL 2
+
+// Note: If you use the external descriptors, you need an external handler too.
+//       It is possible to use external handler with internal descriptors.
+#define TINYDNA_MINIMAL_INTERRUPT_HANDLER
+#define TINYDMA_USE_INTERNAL_DESCRIPTORS
 
 #endif

@@ -24,6 +24,13 @@
 
 #include <stdbool.h>
 
+#define TFP_COMMON_SET_BOOTLOADER_MODE_STATUS_OK                          0
+#define TFP_COMMON_SET_BOOTLOADER_MODE_STATUS_INVALID_MODE                1
+#define TFP_COMMON_SET_BOOTLOADER_MODE_STATUS_NO_CHANGE                   2
+#define TFP_COMMON_SET_BOOTLOADER_MODE_STATUS_ENTRY_FUNCTION_NOT_PRESENT  3
+#define TFP_COMMON_SET_BOOTLOADER_MODE_STATUS_DEVICE_IDENTIFIER_INCORRECT 4
+#define TFP_COMMON_SET_BOOTLOADER_MODE_STATUS_CRC_MISMATCH                5
+
 #include "bootloader_spitfp.h"
 #include "bricklib2/protocols/tfp/tfp.h"
 

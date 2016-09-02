@@ -22,12 +22,16 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#define LED0_PIN                  PIN_PA09
+#define BOOTLOADER_STATUS_LED_PIN      PIN_PA16
+#define BOOTLOADER_DEVICE_IDENTIFIER   276
+#define BOOTLOADER_HW_VERSION_MAJOR    1
+#define BOOTLOADER_HW_VERSION_MINOR    0
+#define BOOTLOADER_HW_VERSION_REVISION 0
 
-#define BRICKLET_BOOT_VERSION     "1.0"
+#define BRICKLETBOOT_VERSION           "1.0"
 
 #include "config_clocks.h"
-#include "config_dma.h"
+#include "config_tinydma.h"
 #include "config_logging.h"
 #include "config_spi.h"
 #include "config_spitfp.h"

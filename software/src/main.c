@@ -24,113 +24,37 @@
 /*
 
 For Bricklets with co-processor we use the following flash memory map
-(in this case for 16kb of flash:
+(in this case for 16kb of flash):
 
--- BOOTLOADER---------------------------------------------------------------
-| brickletboot  | boot_info                                                |
-| 0000-0ffc     | 0ffc-1000                                                |
+-- BOOTLOADER --------------------------------------------------------------
+| brickletboot                                                             |
+| 0000-2000                                                                |
 ----------------------------------------------------------------------------
 
--- FIRMWARE that is used ---------------------------------------------------
-| firmware used | firmware used version | device id    | firmware used crc |
-| 1000-27f4     | 27f4-27f8             | 27f8-27fc    | 27fc-2800         |
-----------------------------------------------------------------------------
-
--- FIRMWARE to be flashed if flash bit in boot_info is set -----------------
-| firmware new  | firmware new version  | device id    | firmware new crc  |
-| 2800-3ff4     | 3ff4-3ff8             | 3ff8-3ffc    | 3ffc-4000         |
+-- FIRMWARE ----------------------------------------------------------------
+| firmware      | firmware version      | device id    | firmware crc      |
+| 2000-3ff4     | 3ff4-3ff8             | 3ff8-3ffc    | 3ffc-4000         |
 ----------------------------------------------------------------------------
 
 */
 
 #include <stdio.h>
 
-#include "tinydma.h"
 #include "port.h"
 #include "clock.h"
 #include "gclk.h"
-#include "system.h"
-#include "pinmux.h"
 #include "wdt.h"
 #include "crc32.h"
 #include "nvm.h"
 #include "spi.h"
 #include "bootloader_spitfp.h"
+#include "boot.h"
+#include "tfp_common.h"
 
+#include "bricklib2/bootloader/tinydma.h"
 #include "bricklib2/bootloader/bootloader.h"
 #include "bricklib2/logging/logging.h"
 #include "configs/config.h"
-
-static BootloaderStatus bootloader_status;
-const uint32_t bootloader_device_identifier = 0; // TODO: Set through compile flag
-
-
-/*const uint32_t boot_info __attribute__ ((section(".boot_info"))) = 0;
-const uint32_t *read_boot_info = (uint32_t*)(BOOT_INFO_POS_START);*/
-typedef void (* firmware_start_func_t)(void);
-
-static void jump_to_firmware() {
-	register firmware_start_func_t firmware_start_func;
-	const uint32_t stack_pointer_address = BL_FIRMWARE_START_POS;
-	const uint32_t reset_pointer_address = BL_FIRMWARE_START_POS + 4;
-
-	// Set stack pointer with the first word of the run mode program
-	// Vector table's first entry is the stack pointer value
-	__set_MSP((*(uint32_t *)stack_pointer_address));
-
-	//set the NVIC's VTOR to the beginning of main app
-	SCB->VTOR = stack_pointer_address& SCB_VTOR_TBLOFF_Msk;
-
-	// Set the program counter to the application start address
-	// Vector table's second entry is the system reset value
-	firmware_start_func = * ((firmware_start_func_t *)reset_pointer_address);
-	firmware_start_func();
-}
-
-static void reset() {
-	NVIC_SystemReset();
-}
-
-static bool check_device_identifier(void) {
-	return BL_FIRMWARE_CONFIGURATION_POSITION->device_identifier == bootloader_device_identifier;
-}
-
-static bool check_crc(void) {
-	uint32_t crc = 0;
-	crc32_calculate((void*)BL_FIRMWARE_START_POS, BL_FIRMWARE_SIZE - sizeof(uint32_t), &crc);
-	return crc == BL_FIRMWARE_CONFIGURATION_POSITION->firmware_crc;
-}
-
-static bool copy_firmware(void) {/*
-	__disable_irq();
-
-	// Unlock flash region
-    FLASHD_Unlock(FIRMWARE_USED_POS_START, FIRMWARE_USED_POS_END, 0, 0);
-
-	for(uint32_t address = FIRMWARE_TEMP_POS_START; address < FIRMWARE_TEMP_POS_END; address+=IFLASH_PAGE_SIZE_SAM3) {
-		uint8_t *buffer_flash = (uint8_t*)address;
-
-		uint8_t buffer[IFLASH_PAGE_SIZE_SAM3] = {0};
-		for(uint16_t i = 0; i < IFLASH_PAGE_SIZE_SAM3; i++) {
-			buffer[i] = buffer_flash[i];
-		}
-
-	    FLASHD_Write(address-FIRMWARE_SIZE, buffer, IFLASH_PAGE_SIZE_SAM3);
-	}
-
-    // Lock flash and enable irqs again
-    FLASHD_Lock(FIRMWARE_USED_POS_START, FIRMWARE_USED_POS_END, 0, 0);
-
-    __enable_irq();
-
-	return true;*/
-
-	return false;
-}
-
-static void remove_bootloader_flag(void) {
-
-}
 
 static void configure_nvm(void) {
 	struct nvm_config config_nvm;
@@ -140,46 +64,7 @@ static void configure_nvm(void) {
 	nvm_set_config(&config_nvm);
 }
 
-static bool is_bootloader_flag_set(void) {
-	return true;
-}
-
-void bootloader_loop(void) {
-	configure_nvm();
-
-	while(true) {
-
-	}
-}
-
-/*
-int main(void) {
-	logging_init();
-
-	system_init();
-
-	if(is_bootloader_flag_set()) {
-		if(!check_device_identifier()) {
-			remove_bootloader_flag();
-			reset();
-		} else if(!check_crc()) {
-			remove_bootloader_flag();
-			reset();
-		}
-
-		bootloader_loop();
-	}
-
-	jump_to_firmware();
-
-	while(true);
-}
-
-*/
-
-
-
-void system_board_init(void) {
+static void configure_wdt(void) {
 	// Enable watchdog
 	struct wdt_conf wdt_config;
 	wdt_get_config_defaults(&wdt_config);
@@ -191,26 +76,78 @@ void system_board_init(void) {
 //	wdt_reset_count();
 }
 
-static void config_led(void) {
+static void configure_led(void) {
+#if 0
 	struct port_config pin_conf;
 	port_get_config_defaults(&pin_conf);
 
-	pin_conf.direction = PORT_PIN_DIR_OUTPUT;
-	port_pin_set_config(bootloader_status.status_led_gpio_pin, &pin_conf);
-	port_pin_set_output_level(bootloader_status.status_led_gpio_pin, false);
+	port_pin_set_config(BOOTLOADER_STATUS_LED_PIN, &pin_conf);
+	port_pin_set_output_level(BOOTLOADER_STATUS_LED_PIN, false);
+#endif
+
+	// Do above code by hand, saves 40 bytes
+
+	PortGroup *const port = &PORT->Group[0];
+	const uint32_t pin_mask = (1 << BOOTLOADER_STATUS_LED_PIN);
+
+	const uint32_t lower_pin_mask = (pin_mask & 0xFFFF);
+	const uint32_t upper_pin_mask = (pin_mask >> 16);
+
+	// TODO: Decide if lower or upper pin_mask is needed with pre-processor
+	//       to save a few bytes
+
+	// Configure lower 16 bits (needed if lower_pin_mask != 0)
+	port->WRCONFIG.reg = (lower_pin_mask << PORT_WRCONFIG_PINMASK_Pos) | PORT_WRCONFIG_WRPMUX | PORT_WRCONFIG_WRPINCFG;
+
+	// Configure upper 16 bits  (needed if upper_pin_mask != 0)
+	port->WRCONFIG.reg = (upper_pin_mask << PORT_WRCONFIG_PINMASK_Pos) | PORT_WRCONFIG_WRPMUX | PORT_WRCONFIG_WRPINCFG | PORT_WRCONFIG_HWSEL;
+
+	// Direction to output
+	port->DIRSET.reg = pin_mask;
+
+	// Turn LED off
+	port->OUTSET.reg = (1 << BOOTLOADER_STATUS_LED_PIN);
 }
 
+// Initialize everything that is needed for bootloader as well as firmware
+void system_init(void) {
+	system_clock_init();
 
-int main(void) {
-	bootloader_status.status_led_gpio_pin = LED0_PIN;
-	bootloader_status.status_led_config = 1;
+	configure_wdt();
+	configure_led();
 
-	system_init();
+	// The following can be enabled if needed by the firmware
+	// Initialize EVSYS hardware
+	//_system_events_init();
+
+	// Initialize External hardware
+	//_system_extint_init();
+
+	// Initialize DIVAS hardware
+	//_system_divas_init();
+}
+
+BootloaderStatus bootloader_status;
+int main() {
+	// Jump to firmware if we can
+	const uint8_t can_jump_to_firmware = boot_can_jump_to_firmware();
+	if(can_jump_to_firmware == TFP_COMMON_SET_BOOTLOADER_MODE_STATUS_OK) {
+		boot_jump_to_firmware();
+	}
+
+#if LOGGING_LEVEL != LOGGING_NONE
 	logging_init();
+	logi("Starting brickletboot (version " BRICKLETBOOT_VERSION ")\n\r");
+	logi("Compiled on " __DATE__ " " __TIME__ "\n\r");
+#endif
 
-	logi("Starting brickletboot (version " BRICKLET_BOOT_VERSION ")\n\r");
-	logi("Compiled on %s %s\n\r", __DATE__, __TIME__);
-	config_led();
+	// We can't jump to firmware, so lets enter bootloader mode
+	bootloader_status.boot_mode = BOOT_MODE_BOOTLOADER;
+	bootloader_status.status_led_config = 1;
+	bootloader_status.st.descriptor_section = tinydma_get_descriptor_section();
+	bootloader_status.st.write_back_section = tinydma_get_write_back_section();
+
+	configure_nvm();
 
 	spitfp_init(&bootloader_status.st);
 

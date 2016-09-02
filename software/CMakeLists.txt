@@ -9,10 +9,10 @@ PROJECT(${PROJECT_NAME})
 # Optimization level, can be [0, 1, 2, 3, s]. 
 # 0 = turn off optimization. s = optimize for size.
 #SET(OPTIMIZATION_LEVEL 0)
-#SET(DEBUG "-g -ggdb")
+SET(DEBUG "-g -ggdb")
 
-SET(OPTIMIZATION_LEVEL 2)
-SET(DEBUG "")
+SET(OPTIMIZATION_LEVEL s)
+#SET(DEBUG "")
 
 SET(CMAKE_BUILD_TYPE None)
 
@@ -27,30 +27,32 @@ SET(SOURCES
 	"${PROJECT_SOURCE_DIR}/src/main.c"
 	"${PROJECT_SOURCE_DIR}/src/bootloader_spitfp.c"
 	"${PROJECT_SOURCE_DIR}/src/tfp_common.c"
-	"${PROJECT_SOURCE_DIR}/src/tinydma.c"
+	"${PROJECT_SOURCE_DIR}/src/boot.c"
+	"${PROJECT_SOURCE_DIR}/src/firmware_entry.c"
+#	"${PROJECT_SOURCE_DIR}/src/temperature.c"
+
+	"${PROJECT_SOURCE_DIR}/src/bricklib2/hal/startup/startup_samd09.c"
+	"${PROJECT_SOURCE_DIR}/src/bricklib2/bootloader/tinydma.c"
 	"${PROJECT_SOURCE_DIR}/src/bricklib2/protocols/tfp/tfp.c"
-	"${PROJECT_SOURCE_DIR}/src/bricklib2/logging/logging.c"
+#	"${PROJECT_SOURCE_DIR}/src/bricklib2/logging/logging.c"
 	"${PROJECT_SOURCE_DIR}/src/bricklib2/utility/ringbuffer.c"
 	"${PROJECT_SOURCE_DIR}/src/bricklib2/utility/pearson_hash.c"
-	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/common/utils/interrupt/interrupt_sam_nvic.c"
-	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/drivers/port/port.c"
+
 	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/drivers/wdt/wdt.c"
 	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/drivers/nvm/nvm.c"
+#	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/drivers/adc/adc_sam_d_r/adc.c"
+	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/drivers/dsu/crc32/crc32.c"
 	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/drivers/system/clock/clock_samd09_d10_d11/clock.c"
 	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/drivers/system/clock/clock_samd09_d10_d11/gclk.c"
 	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/drivers/system/interrupt/system_interrupt.c"
 	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/drivers/system/pinmux/pinmux.c"
-	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/drivers/system/system.c"
-	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/utils/cmsis/samd09/source/gcc/startup_samd09.c"
-	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/utils/cmsis/samd09/source/system_samd09.c"
-	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/utils/syscalls/gcc/syscalls.c"
-	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/drivers/sercom/usart/usart.c"
+#	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/drivers/sercom/usart/usart.c"
 	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/drivers/sercom/sercom.c"
 	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/drivers/sercom/spi/spi.c"
-	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/common/utils/stdio/write.c"
-	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/common/utils/stdio/read.c"
-	
-	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/common/services/crc32/crc32.c"
+	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/utils/syscalls/gcc/syscalls.c"
+	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf_overwrite/common/utils/interrupt/interrupt_sam_nvic.c"
+#	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/common/utils/stdio/write.c"
+#	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/common/utils/stdio/read.c"
 )
 
 MESSAGE(STATUS "\nFound following source files:\n ${SOURCES}\n")

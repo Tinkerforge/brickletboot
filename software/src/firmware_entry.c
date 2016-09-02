@@ -1,7 +1,7 @@
 /* brickletboot
- * Copyright (C) 2010 Olaf Lüke <olaf@tinkerforge.com>
+ * Copyright (C) 2016 Olaf Lüke <olaf@tinkerforge.com>
  *
- * spitfp.h: Tinkerforge Protocol (TFP) over SPI implementation
+ * firmware_entry.c: Entry function for firmware
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -19,22 +19,14 @@
  * Boston, MA 02111-1307, USA.
  */
 
-#ifndef BOOTLOADER_SPITFP_H
-#define BOOTLOADER_SPITFP_H
-
-#include "configs/config_spitfp.h"
-
-#include "spi.h"
-#include "bricklib2/utility/ringbuffer.h"
-#include "bricklib2/protocols/tfp/tfp.h"
-#include "bricklib2/protocols/spitfp/spitfp.h"
-#include "bricklib2/bootloader/tinydma.h"
 #include "bricklib2/bootloader/bootloader.h"
 
-void spitfp_init(SPITFP *st);
-void spitfp_tick(BootloaderStatus *bootloader_status);
-bool spitfp_is_send_possible(SPITFP *st);
-void spitfp_send_ack_and_message(SPITFP *st, uint8_t *data, const uint8_t length);
-void spitfp_send_ack(SPITFP *st);
+#include "dsu_crc32.h"
+#include "bootloader_spitfp.h"
 
-#endif
+__attribute__ ((section(".firmware_entry_func"))) void firmware_entry(BootloaderFunctions *bf) {
+	bf->spitfp_tick = spitfp_tick;
+	bf->spitfp_send_ack_and_message = spitfp_send_ack_and_message;
+	bf->spitfp_is_send_possible = spitfp_is_send_possible;
+	bf->dsu_crc32_cal = dsu_crc32_cal;
+}

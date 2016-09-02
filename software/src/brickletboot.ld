@@ -27,12 +27,16 @@ SEARCH_DIR(.)
 /* Memory Spaces Definitions */
 MEMORY
 {
-  rom      (rx)  : ORIGIN = 0x00000000, LENGTH = 0x00004000 /* bootloader uses first 4kb */
+  rom      (rx)  : ORIGIN = 0x00000000, LENGTH = 0x00002000 /* bootloader uses first 8kb */
   ram      (rwx) : ORIGIN = 0x20000000, LENGTH = 0x00001000
 }
 
+/* Use samd09 entry function */
+ENTRY(samd09_entry)
+
+
 /* The stack size used by the application. NOTE: you need to adjust according to your application. */
-STACK_SIZE = DEFINED(STACK_SIZE) ? STACK_SIZE : DEFINED(__stack_size__) ? __stack_size__ : 0x400;
+STACK_SIZE = DEFINED(STACK_SIZE) ? STACK_SIZE : DEFINED(__stack_size__) ? __stack_size__ : 0xf44;
 
 /* Section Definitions */
 SECTIONS
@@ -96,12 +100,11 @@ SECTIONS
 
     . = ALIGN(4);
     _etext = .;
-    
-    /* Set fixed address for boot_info */
-/*    .boot_info 0x00000ffc :
+
+    .firmware_entry_func 0x00001fc0 :
     {
-        KEEP(*(.boot_info))
-    } > rom*/
+        KEEP(*(.firmware_entry_func))
+    } > rom
 
     .relocate : AT (_etext)
     {
@@ -131,11 +134,12 @@ SECTIONS
     {
         . = ALIGN(8);
         _sstack = .;
-        . = . + STACK_SIZE;
-        . = ALIGN(8);
-        _estack = .;
+        *(.stack .stack.*)
     } > ram
+    
+    /* Stack in the end of SRAM */
+    _estack = 0x20001000;
 
-    . = ALIGN(4);
-    _end = . ;
+    . = ALIGN(4); 
+    _end = . ; 
 }
