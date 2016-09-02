@@ -22,7 +22,7 @@
 #ifndef BOOTLOADER_SPITFP_H
 #define BOOTLOADER_SPITFP_H
 
-#include "configs/config_spitfp.h"
+#include "configs/config.h"
 
 #include "spi.h"
 #include "bricklib2/utility/ringbuffer.h"
