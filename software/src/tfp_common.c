@@ -23,12 +23,12 @@
 
 #include <string.h>
 
-#include "nvm.h"
 #include "boot.h"
 
 #include "configs/config.h"
 
 #include "bricklib2/protocols/tfp/tfp.h"
+#include "bricklib2/bootloader/tinynvm.h"
 
 #define TFP_COMMON_FID_SET_BOOTLOADER_MODE 235
 #define TFP_COMMON_FID_GET_BOOTLOADER_MODE 236
@@ -197,14 +197,6 @@ BootloaderHandleMessageReturn tfp_common_set_bootloader_mode(const TFPCommonSetB
 
 		bs->boot_mode = BOOT_MODE_FIRMWARE_WAIT_FOR_ERASE_AND_REBOOT;
 		bs->reboot_started_at = bs->system_timer_tick;
-
-		// Check for error during NVM erase operation
-		if ((enum nvm_error)(NVMCTRL->STATUS.reg & NVM_ERRORS_MASK) != NVM_ERROR_NONE) {
-			sbmr->status = STATUS_ABORTED;
-		} else {
-			sbmr->status = TFP_COMMON_SET_BOOTLOADER_MODE_STATUS_OK;
-		}
-
 	} else if(data->mode == BOOT_MODE_FIRMWARE) {
 		// From Bootloader to Firmware
 		sbmr->status = boot_can_jump_to_firmware();
@@ -247,25 +239,19 @@ BootloaderHandleMessageReturn tfp_common_write_firmware(const TFPCommonWriteFirm
 	wfr->header = data->header;
 	wfr->header.length = sizeof(TFPCommonWriteFirmwareReturn);
 
-
 	if((tfp_common_firmware_pointer >= (BOOTLOADER_FIRMWARE_SIZE-TFP_COMMON_BOOTLOADER_WRITE_CHUNK_SIZE)) ||
 	   ((tfp_common_firmware_pointer % TFP_COMMON_BOOTLOADER_WRITE_CHUNK_SIZE) != 0)) {
 		wfr->status = TFP_COMMON_WRITE_FIRMWARE_STATUS_INVALID_POINTER;
 		return false;
 	}
 
-	status_code_genare_t error = 0;
 	if(tfp_common_firmware_pointer == 0) {
 		for(uint32_t i = 0; i < BOOTLOADER_FIRMWARE_SIZE; i += NVMCTRL_ROW_PAGES*TFP_COMMON_BOOTLOADER_WRITE_CHUNK_SIZE) {
-			do {
-				error = nvm_erase_row(BOOTLOADER_FIRMWARE_START_POS + i);
-			} while(error == STATUS_BUSY);
+			tinynvm_erase_row(BOOTLOADER_FIRMWARE_START_POS + i);
 		}
 	}
 
-	do {
-		error = nvm_write_buffer(tfp_common_firmware_pointer, data->data, TFP_COMMON_BOOTLOADER_WRITE_CHUNK_SIZE);
-	} while(error == STATUS_BUSY);
+	tinynvm_write_buffer(tfp_common_firmware_pointer, data->data, TFP_COMMON_BOOTLOADER_WRITE_CHUNK_SIZE);
 
 	return HANDLE_MESSAGE_RETURN_NEW_MESSAGE;
 }
@@ -319,9 +305,9 @@ BootloaderHandleMessageReturn tfp_common_reset(const TFPCommonReset *data, void 
 		bs->reboot_started_at = bs->system_timer_tick;
 	}
 
-	// We can ignore all other cases, in the other cases we will be rebooting shortly anyway.
+	// We can ignore all other cases, in the other cases we will be rebooting shortly anyway
 
-	return false;
+	return HANDLE_MESSAGE_RETURN_EMPTY;
 }
 
 BootloaderHandleMessageReturn tfp_common_get_identity(const TFPCommonGetIdentity *data, void *_return_message) {
@@ -387,37 +373,18 @@ void tfp_common_handle_reset(BootloaderStatus *bs) {
 		case BOOT_MODE_FIRMWARE_WAIT_FOR_REBOOT: {
 			if((bs->system_timer_tick - bs->reboot_started_at) >= TFP_COMMON_WAIT_BEFORE_RESET) {
 				NVIC_SystemReset();
-				while(true);
 			}
 			return;
 		}
 
 		case BOOT_MODE_FIRMWARE_WAIT_FOR_ERASE_AND_REBOOT: {
 			if((bs->system_timer_tick - bs->reboot_started_at) >= TFP_COMMON_WAIT_BEFORE_RESET) {
-				// Since this function is called in bootloader from firmware
-				// we can't call nvm_erase_row (NVM code would not be configured properly).
-				// To circumvent this problem we just do it by hand here.
-
-				// TODO: Turn all interrupts off here! The firmware code should not be
+				// Turn all interrupts off here! The firmware code should not be
 				// able to do anything as soon as we are at this point. Otherwise we might
 				// have a race condition between the memory erase and the reset.
-				while(true) {
-					while(!nvm_is_ready());
-
-					// Clear error flags
-					NVMCTRL->STATUS.reg = NVMCTRL_STATUS_MASK;
-
-					// Set address and command
-					NVMCTRL->ADDR.reg  = (uintptr_t)&TFP_COMMON_NVM_MEMORY[BOOTLOADER_FIRMWARE_START_POS / 4];
-					NVMCTRL->CTRLA.reg = NVM_COMMAND_ERASE_ROW | NVMCTRL_CTRLA_CMDEX_KEY;
-
-					while(!nvm_is_ready());
-
-					if((enum nvm_error)(NVMCTRL->STATUS.reg & NVM_ERRORS_MASK) == NVM_ERROR_NONE) {
-						NVIC_SystemReset();
-						while(true);
-					}
-				}
+				cpu_irq_disable();
+				tinynvm_erase_row(BOOTLOADER_FIRMWARE_START_POS);
+				NVIC_SystemReset();
 			}
 		}
 	}

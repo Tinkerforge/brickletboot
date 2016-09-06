@@ -43,42 +43,21 @@ For Bricklets with co-processor we use the following flash memory map
 #include "port.h"
 #include "clock.h"
 #include "gclk.h"
-#include "wdt.h"
 #include "crc32.h"
-#include "nvm.h"
 #include "spi.h"
 #include "bootloader_spitfp.h"
 #include "boot.h"
 #include "tfp_common.h"
 
 #include "bricklib2/bootloader/tinydma.h"
+#include "bricklib2/bootloader/tinywdt.h"
+#include "bricklib2/bootloader/tinynvm.h"
 #include "bricklib2/bootloader/bootloader.h"
 #include "bricklib2/logging/logging.h"
 #include "configs/config.h"
 
 const uint32_t device_identifier __attribute__ ((section(".device_identifier"))) = BOOTLOADER_DEVICE_IDENTIFIER;
 const uint32_t bootloader_version __attribute__ ((section(".bootloader_version"))) = (BOOTLOADER_VERSION_MAJOR << 16) | (BOOTLOADER_VERSION_MINOR << 8) | (BOOTLOADER_VERSION_REVISION << 0);
-
-static void configure_nvm(void) {
-	struct nvm_config config_nvm;
-	nvm_get_config_defaults(&config_nvm);
-	config_nvm.manual_page_write = false;
-
-	nvm_set_config(&config_nvm);
-}
-
-static void configure_wdt(void) {
-	// Enable watchdog
-	struct wdt_conf wdt_config;
-	wdt_get_config_defaults(&wdt_config);
-	wdt_config.enable = false; // TODO: Remove me
-	wdt_config.clock_source = GCLK_GENERATOR_2;
-	wdt_config.timeout_period = WDT_PERIOD_16384CLK; // This should be ~1s
-
-	wdt_set_config(&wdt_config);
-
-//	wdt_reset_count();
-}
 
 static void configure_led(void) {
 #if 0
@@ -116,8 +95,7 @@ static void configure_led(void) {
 // Initialize everything that is needed for bootloader as well as firmware
 void system_init(void) {
 	system_clock_init();
-
-	configure_wdt();
+	tinywdt_init();
 	configure_led();
 
 	// The following can be enabled if needed by the firmware
@@ -153,16 +131,17 @@ int main() {
 	bootloader_status.st.write_back_section = tinydma_get_write_back_section();
 	bootloader_status.system_timer_tick = 0;
 
-	configure_nvm();
+	tinynvm_init();
 
 	spitfp_init(&bootloader_status.st);
 
 	while(true) {
-		if(bootloader_status.system_timer_tick++ % 2) {
+		bootloader_status.system_timer_tick++;
+/*		if(bootloader_status.system_timer_tick++ % 2) {
 			PORT->Group[0].OUTSET.reg = (1 << BOOTLOADER_STATUS_LED_PIN);
 		} else {
 			PORT->Group[0].OUTCLR.reg = (1 << BOOTLOADER_STATUS_LED_PIN);
-		}
+		}*/
 		spitfp_tick(&bootloader_status);
 	}
 }

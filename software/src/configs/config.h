@@ -22,7 +22,9 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#ifdef USE_CUSTOM_BOOTLOADER
+
+
+#if __has_include("config_custom_bootloader.h")
 #include "config_custom_bootloader.h"
 #else
 #include "config_default_bootloader.h"

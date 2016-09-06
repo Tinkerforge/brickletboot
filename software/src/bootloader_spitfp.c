@@ -67,6 +67,7 @@ Protocol information:
 
 #include "bricklib2/utility/pearson_hash.h"
 #include "bricklib2/logging/logging.h"
+#include "bricklib2/bootloader/tinywdt.h"
 
 #define SPITFP_MIN_TFP_MESSAGE_LENGTH (TFP_MESSAGE_MIN_LENGTH + SPITFP_PROTOCOL_OVERHEAD)
 #define SPITFP_MAX_TFP_MESSAGE_LENGTH (TFP_MESSAGE_MAX_LENGTH + SPITFP_PROTOCOL_OVERHEAD)
@@ -178,7 +179,6 @@ uint8_t spitfp_get_sequence_byte(SPITFP *st, const bool increase) {
 }
 
 void spitfp_enable_tx_dma(SPITFP *st) {
-	logd("spitfp_enable_tx_dma\n\r");
 	cpu_irq_disable();
 	DMAC->CHID.reg = DMAC_CHID_ID(TINYDMA_SPITFP_TX_INDEX); // Select tx channel
 	DMAC->CHINTFLAG.reg = DMAC_CHINTFLAG_TCMPL; // Clear pending interrupts
@@ -188,8 +188,6 @@ void spitfp_enable_tx_dma(SPITFP *st) {
 }
 
 void spitfp_send_ack_and_message(SPITFP *st, uint8_t *data, const uint8_t length) {
-	//spitfp_write_ack_to_buffer(st);
-
 	// TODO: Do we need the additional ACK here in front? Probably not!
 
 	uint8_t checksum = 0;
@@ -238,7 +236,9 @@ bool spitfp_is_send_possible(SPITFP *st) {
 }
 
 void spitfp_tick(BootloaderStatus *bootloader_status) {
+//	tinywdt_reset();
 	tfp_common_handle_reset(bootloader_status);
+
 	SPITFP *st = &bootloader_status->st;
 	uint8_t message[TFP_MESSAGE_MAX_LENGTH] = {0};
 	uint8_t message_position = 0;

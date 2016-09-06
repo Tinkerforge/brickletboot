@@ -33,13 +33,14 @@ SET(SOURCES
 
 	"${PROJECT_SOURCE_DIR}/src/bricklib2/hal/startup/startup_samd09.c"
 	"${PROJECT_SOURCE_DIR}/src/bricklib2/bootloader/tinydma.c"
+	"${PROJECT_SOURCE_DIR}/src/bricklib2/bootloader/tinywdt.c"
+	"${PROJECT_SOURCE_DIR}/src/bricklib2/bootloader/tinynvm.c"
 	"${PROJECT_SOURCE_DIR}/src/bricklib2/protocols/tfp/tfp.c"
 #	"${PROJECT_SOURCE_DIR}/src/bricklib2/logging/logging.c"
 	"${PROJECT_SOURCE_DIR}/src/bricklib2/utility/ringbuffer.c"
 	"${PROJECT_SOURCE_DIR}/src/bricklib2/utility/pearson_hash.c"
 
-	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/drivers/wdt/wdt.c"
-	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/drivers/nvm/nvm.c"
+#	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/drivers/wdt/wdt.c"
 #	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/drivers/adc/adc_sam_d_r/adc.c"
 	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/drivers/dsu/crc32/crc32.c"
 	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/drivers/system/clock/clock_samd09_d10_d11/clock.c"
@@ -91,7 +92,3 @@ ADD_CUSTOM_COMMAND(TARGET ${PROJECT_NAME}.elf POST_BUILD COMMAND
 
 # add preprocessor defines
 ADD_DEFINITIONS(-D__${CHIP}__ -D__${CHIP_FAMILY}__ -Dflash -Dprintf=iprintf)
- 
-if(EXISTS "${PROJECT_SOURCE_DIR}/src/configs/config_custom_bootloader.h")
-ADD_DEFINITIONS(-DUSE_CUSTOM_BOOTLOADER)
-endif()
