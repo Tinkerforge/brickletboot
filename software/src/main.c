@@ -151,12 +151,18 @@ int main() {
 	bootloader_status.status_led_config = 0;
 	bootloader_status.st.descriptor_section = tinydma_get_descriptor_section();
 	bootloader_status.st.write_back_section = tinydma_get_write_back_section();
+	bootloader_status.system_timer_tick = 0;
 
 	configure_nvm();
 
 	spitfp_init(&bootloader_status.st);
 
 	while(true) {
+		if(bootloader_status.system_timer_tick++ % 2) {
+			PORT->Group[0].OUTSET.reg = (1 << BOOTLOADER_STATUS_LED_PIN);
+		} else {
+			PORT->Group[0].OUTCLR.reg = (1 << BOOTLOADER_STATUS_LED_PIN);
+		}
 		spitfp_tick(&bootloader_status);
 	}
 }

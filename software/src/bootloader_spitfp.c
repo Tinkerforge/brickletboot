@@ -238,6 +238,7 @@ bool spitfp_is_send_possible(SPITFP *st) {
 }
 
 void spitfp_tick(BootloaderStatus *bootloader_status) {
+	tfp_common_handle_reset(bootloader_status);
 	SPITFP *st = &bootloader_status->st;
 	uint8_t message[TFP_MESSAGE_MAX_LENGTH] = {0};
 	uint8_t message_position = 0;

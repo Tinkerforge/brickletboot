@@ -80,11 +80,11 @@ ADD_CUSTOM_COMMAND(TARGET ${PROJECT_NAME}.elf POST_BUILD COMMAND
 ADD_CUSTOM_COMMAND(TARGET ${PROJECT_NAME}.elf POST_BUILD COMMAND 
                    ${CMAKE_SIZE} 
                    ${OBJECT} ${PROJECT_NAME}.elf)
-                   
+ 
 ADD_CUSTOM_COMMAND(TARGET ${PROJECT_NAME}.elf POST_BUILD COMMAND 
                    ${PROJECT_SOURCE_DIR}/src/bricklib2/bootloader/crc32.py
                    ${PROJECT_NAME}.bin > ${PROJECT_NAME}-checksum.bin)
-                   
+
 ADD_CUSTOM_COMMAND(TARGET ${PROJECT_NAME}.elf POST_BUILD COMMAND 
                    cat
                    ${PROJECT_NAME}.bin ${PROJECT_NAME}-checksum.bin > ${PROJECT_NAME}-with-checksum.bin)

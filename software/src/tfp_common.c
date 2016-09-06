@@ -29,7 +29,6 @@
 #include "configs/config.h"
 
 #include "bricklib2/protocols/tfp/tfp.h"
-#include "bricklib2/logging/logging.h"
 
 #define TFP_COMMON_FID_SET_BOOTLOADER_MODE 235
 #define TFP_COMMON_FID_GET_BOOTLOADER_MODE 236
@@ -38,7 +37,7 @@
 #define TFP_COMMON_FID_SET_STATUS_LED_CONFIG 239
 #define TFP_COMMON_FID_GET_STATUS_LED_CONFIG 240
 #define TFP_COMMON_FID_GET_PROTOCOL1_BRICKLET_NAME 241 // unused ?
-#define TFP_COMMON_FID_GET_CHIP_TEMPERATURE 242
+#define TFP_COMMON_FID_GET_CHIP_TEMPERATURE 242 // unused ?
 #define TFP_COMMON_FID_RESET 243
 #define TFP_COMMON_FID_GET_ADC_CALIBRATION 250 // unused ?
 #define TFP_COMMON_FID_ADC_CALIBRATE 251 // unused ?
@@ -62,6 +61,9 @@
 #define TFP_COMMON_WRITE_FIRMWARE_STATUS_OK              0
 #define TFP_COMMON_WRITE_FIRMWARE_STATUS_INVALID_POINTER 1
 
+#define TFP_COMMON_NVM_MEMORY ((volatile uint16_t *)FLASH_ADDR)
+
+#define TFP_COMMON_WAIT_BEFORE_RESET 250 // in ms
 
 typedef struct {
 	TFPMessageHeader header;
@@ -191,18 +193,24 @@ BootloaderHandleMessageReturn tfp_common_set_bootloader_mode(const TFPCommonSetB
 		sbmr->status = TFP_COMMON_SET_BOOTLOADER_MODE_STATUS_NO_CHANGE;
 	} else if(data->mode == BOOT_MODE_BOOTLOADER) {
 		// From Firmware to Bootloader
-		status_code_genare_t error = 0;
-		do {
-			error = nvm_erase_row(BOOTLOADER_FIRMWARE_START_POS);
-		} while(error == STATUS_BUSY);
-
-		// TODO: Add timeout to while loop and return .._STATUS_TIMEOUT?
 		sbmr->status = TFP_COMMON_SET_BOOTLOADER_MODE_STATUS_OK;
+
+		bs->boot_mode = BOOT_MODE_FIRMWARE_WAIT_FOR_ERASE_AND_REBOOT;
+		bs->reboot_started_at = bs->system_timer_tick;
+
+		// Check for error during NVM erase operation
+		if ((enum nvm_error)(NVMCTRL->STATUS.reg & NVM_ERRORS_MASK) != NVM_ERROR_NONE) {
+			sbmr->status = STATUS_ABORTED;
+		} else {
+			sbmr->status = TFP_COMMON_SET_BOOTLOADER_MODE_STATUS_OK;
+		}
+
 	} else if(data->mode == BOOT_MODE_FIRMWARE) {
 		// From Bootloader to Firmware
 		sbmr->status = boot_can_jump_to_firmware();
 		if(sbmr->status == TFP_COMMON_SET_BOOTLOADER_MODE_STATUS_OK) {
-			// TODO: Reset after message is sent!
+			bs->boot_mode = BOOT_MODE_BOOTLOADER_WAIT_FOR_REBOOT;
+			bs->reboot_started_at = bs->system_timer_tick;
 		}
 	}
 
@@ -302,10 +310,16 @@ BootloaderHandleMessageReturn tfp_common_get_chip_temperature(const TFPCommonGet
 	return HANDLE_MESSAGE_RETURN_NEW_MESSAGE;
 }
 
-BootloaderHandleMessageReturn tfp_common_reset(const TFPCommonReset *data, void *_return_message) {
-	NVIC_SystemReset();
+BootloaderHandleMessageReturn tfp_common_reset(const TFPCommonReset *data, void *_return_message, BootloaderStatus *bs) {
+	if(bs->boot_mode == BOOT_MODE_BOOTLOADER) {
+		bs->boot_mode = BOOT_MODE_BOOTLOADER_WAIT_FOR_REBOOT;
+		bs->reboot_started_at = bs->system_timer_tick;
+	} else if(bs->boot_mode == BOOT_MODE_FIRMWARE) {
+		bs->boot_mode = BOOT_MODE_FIRMWARE_WAIT_FOR_REBOOT;
+		bs->reboot_started_at = bs->system_timer_tick;
+	}
 
-	// TODO: Only apply the reset after some time so we can return if response expected?
+	// We can ignore all other cases, in the other cases we will be rebooting shortly anyway.
 
 	return false;
 }
@@ -362,16 +376,65 @@ BootloaderHandleMessageReturn tfp_common_co_mcu_enumerate(const TFPCommonCoMCUEn
 	return HANDLE_MESSAGE_RETURN_NEW_MESSAGE;
 }
 
+void tfp_common_handle_reset(BootloaderStatus *bs) {
+	switch(bs->boot_mode) {
+		case BOOT_MODE_BOOTLOADER:
+		case BOOT_MODE_FIRMWARE: {
+			return;
+		}
+
+		case BOOT_MODE_BOOTLOADER_WAIT_FOR_REBOOT:
+		case BOOT_MODE_FIRMWARE_WAIT_FOR_REBOOT: {
+			if((bs->system_timer_tick - bs->reboot_started_at) >= TFP_COMMON_WAIT_BEFORE_RESET) {
+				NVIC_SystemReset();
+				while(true);
+			}
+			return;
+		}
+
+		case BOOT_MODE_FIRMWARE_WAIT_FOR_ERASE_AND_REBOOT: {
+			if((bs->system_timer_tick - bs->reboot_started_at) >= TFP_COMMON_WAIT_BEFORE_RESET) {
+				// Since this function is called in bootloader from firmware
+				// we can't call nvm_erase_row (NVM code would not be configured properly).
+				// To circumvent this problem we just do it by hand here.
+
+				// TODO: Turn all interrupts off here! The firmware code should not be
+				// able to do anything as soon as we are at this point. Otherwise we might
+				// have a race condition between the memory erase and the reset.
+				while(true) {
+					while(!nvm_is_ready());
+
+					// Clear error flags
+					NVMCTRL->STATUS.reg = NVMCTRL_STATUS_MASK;
+
+					// Set address and command
+					NVMCTRL->ADDR.reg  = (uintptr_t)&TFP_COMMON_NVM_MEMORY[BOOTLOADER_FIRMWARE_START_POS / 4];
+					NVMCTRL->CTRLA.reg = NVM_COMMAND_ERASE_ROW | NVMCTRL_CTRLA_CMDEX_KEY;
+
+					while(!nvm_is_ready());
+
+					if((enum nvm_error)(NVMCTRL->STATUS.reg & NVM_ERRORS_MASK) == NVM_ERROR_NONE) {
+						NVIC_SystemReset();
+						while(true);
+					}
+				}
+			}
+		}
+	}
+}
+
 void tfp_common_handle_message(const void *message, const uint8_t length, BootloaderStatus *bs) {
 	// TODO: Wait for ~1 second after startup for CoMCUEnumerate message. If there is none,
 	//       send an "answer" to it anyway
+
+#if 0
 	const uint8_t message_length = tfp_get_length_from_message(message);
 	if(length != message_length) {
-		logw("Length mismatch: received %d, message length %d\n\r", length, message_length);
 		// TODO: What do we do here? Send ACK or ignore message?
 		//       Should we just not check at all?
 		return;
 	}
+#endif
 
 	uint8_t return_message[TFP_COMMON_RETURN_MESSAGE_LENGTH];
 	BootloaderHandleMessageReturn handle_message_return = HANDLE_MESSAGE_RETURN_EMPTY;
@@ -383,8 +446,8 @@ void tfp_common_handle_message(const void *message, const uint8_t length, Bootlo
 		case TFP_COMMON_FID_WRITE_FIRMWARE:             handle_message_return = tfp_common_write_firmware(message, return_message, bs);             break;
 		case TFP_COMMON_FID_SET_STATUS_LED_CONFIG:      handle_message_return = tfp_common_set_status_led_config(message, return_message, bs);      break;
 		case TFP_COMMON_FID_GET_STATUS_LED_CONFIG:      handle_message_return = tfp_common_get_status_led_config(message, return_message, bs);      break;
-		case TFP_COMMON_FID_GET_CHIP_TEMPERATURE:       handle_message_return = tfp_common_get_chip_temperature(message, return_message);           break;
-		case TFP_COMMON_FID_RESET:                      handle_message_return = tfp_common_reset(message, return_message);                          break;
+//		case TFP_COMMON_FID_GET_CHIP_TEMPERATURE:       handle_message_return = tfp_common_get_chip_temperature(message, return_message);           break;
+		case TFP_COMMON_FID_RESET:                      handle_message_return = tfp_common_reset(message, return_message, bs);                      break;
 		case TFP_COMMON_FID_CO_MCU_ENUMERATE:           handle_message_return = tfp_common_co_mcu_enumerate(message, return_message);               break;
 		case TFP_COMMON_FID_ENUMERATE:                  handle_message_return = tfp_common_enumerate(message, return_message);                      break;
 		case TFP_COMMON_FID_GET_IDENTITY:               handle_message_return = tfp_common_get_identity(message, return_message);                   break;

@@ -35,5 +35,6 @@
 #include "bricklib2/protocols/tfp/tfp.h"
 
 void tfp_common_handle_message(const void *message, const uint8_t length, BootloaderStatus *bs);
+void tfp_common_handle_reset(BootloaderStatus *bs);
 
 #endif
