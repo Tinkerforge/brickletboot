@@ -384,6 +384,7 @@ void tfp_common_handle_reset(BootloaderStatus *bs) {
 				// able to do anything as soon as we are at this point. Otherwise we might
 				// have a race condition between the memory erase and the reset.
 				cpu_irq_disable();
+				tinynvm_init();
 				tinynvm_erase_row(BOOTLOADER_FIRMWARE_START_POS);
 				NVIC_SystemReset();
 			}
