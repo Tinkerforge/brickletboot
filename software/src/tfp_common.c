@@ -242,7 +242,7 @@ BootloaderHandleMessageReturn tfp_common_write_firmware(const TFPCommonWriteFirm
 	if((tfp_common_firmware_pointer >= (BOOTLOADER_FIRMWARE_SIZE-TFP_COMMON_BOOTLOADER_WRITE_CHUNK_SIZE)) ||
 	   ((tfp_common_firmware_pointer % TFP_COMMON_BOOTLOADER_WRITE_CHUNK_SIZE) != 0)) {
 		wfr->status = TFP_COMMON_WRITE_FIRMWARE_STATUS_INVALID_POINTER;
-		return false;
+		return HANDLE_MESSAGE_RETURN_INVALID_PARAMETER;
 	}
 
 	if(tfp_common_firmware_pointer == 0) {
@@ -252,6 +252,7 @@ BootloaderHandleMessageReturn tfp_common_write_firmware(const TFPCommonWriteFirm
 	}
 
 	tinynvm_write_buffer(tfp_common_firmware_pointer, data->data, TFP_COMMON_BOOTLOADER_WRITE_CHUNK_SIZE);
+	wfr->status = TFP_COMMON_WRITE_FIRMWARE_STATUS_OK;
 
 	return HANDLE_MESSAGE_RETURN_NEW_MESSAGE;
 }
