@@ -80,7 +80,7 @@
 
 // System clock bus configuration
 #define CONF_CLOCK_CPU_CLOCK_FAILURE_DETECT     false
-#define CONF_CLOCK_FLASH_WAIT_STATES            2
+#define CONF_CLOCK_FLASH_WAIT_STATES            2 // See 46.11.9. We need 2 FWS at 48Mhz
 #define CONF_CLOCK_CPU_DIVIDER                  SYSTEM_MAIN_CLOCK_DIV_1
 #define CONF_CLOCK_APBA_DIVIDER                 SYSTEM_MAIN_CLOCK_DIV_1
 #define CONF_CLOCK_APBB_DIVIDER                 SYSTEM_MAIN_CLOCK_DIV_1
