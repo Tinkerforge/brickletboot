@@ -135,13 +135,19 @@ int main() {
 
 	spitfp_init(&bootloader_status.st);
 
+	uint8_t tick_counter = 0;
 	while(true) {
-		bootloader_status.system_timer_tick++;
-/*		if(bootloader_status.system_timer_tick++ % 2) {
-			PORT->Group[0].OUTSET.reg = (1 << BOOTLOADER_STATUS_LED_PIN);
-		} else {
-			PORT->Group[0].OUTCLR.reg = (1 << BOOTLOADER_STATUS_LED_PIN);
-		}*/
+		tick_counter++;;
+		if(tick_counter >= 40) { // We call spitfp_tick aprox. 40 times per ms
+			bootloader_status.system_timer_tick++;
+			if(bootloader_status.system_timer_tick % 2 == 0) {
+				PORT->Group[0].OUTSET.reg = (1 << BOOTLOADER_STATUS_LED_PIN);
+			} else {
+				PORT->Group[0].OUTCLR.reg = (1 << BOOTLOADER_STATUS_LED_PIN);
+			};
+			tick_counter = 0;
+		}
+
 		spitfp_tick(&bootloader_status);
 	}
 }
