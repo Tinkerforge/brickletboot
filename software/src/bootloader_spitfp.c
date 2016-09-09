@@ -55,6 +55,10 @@ Protocol information:
 * Sequence number runs from 0x1 to 0xF (0 is for ACK Packet only)
 * Compared to the SPI stack protocol, this protocol is made for slow SPI clock speeds
 
+Optinal Improvement:
+* Master only polls if data available or MISO line is low
+* Slave puts MISO line low if it has data to send
+
 */
 
 #include "bootloader_spitfp.h"
