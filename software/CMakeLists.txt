@@ -50,10 +50,13 @@ SET(SOURCES
 #	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/drivers/sercom/usart/usart.c"
 	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/drivers/sercom/sercom.c"
 	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/drivers/sercom/spi/spi.c"
+#	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/drivers/events/events_sam_d_r/events.c"
+#	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/drivers/extint/extint_sam_d_r/extint.c"
 	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/sam0/utils/syscalls/gcc/syscalls.c"
 	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf_overwrite/common/utils/interrupt/interrupt_sam_nvic.c"
 #	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/common/utils/stdio/write.c"
 #	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/common/utils/stdio/read.c"
+#	"${PROJECT_SOURCE_DIR}/src/bricklib2/asf/common2/services/delay/sam0/cycle_counter.c"
 )
 
 MESSAGE(STATUS "\nFound following source files:\n ${SOURCES}\n")
