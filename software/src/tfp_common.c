@@ -245,13 +245,13 @@ BootloaderHandleMessageReturn tfp_common_write_firmware(const TFPCommonWriteFirm
 		return HANDLE_MESSAGE_RETURN_INVALID_PARAMETER;
 	}
 
-	if(tfp_common_firmware_pointer == 0) {
-		for(uint32_t i = 0; i < BOOTLOADER_FIRMWARE_SIZE; i += NVMCTRL_ROW_PAGES*TFP_COMMON_BOOTLOADER_WRITE_CHUNK_SIZE) {
-			tinynvm_erase_row(BOOTLOADER_FIRMWARE_START_POS + i);
-		}
+	// If we are at the start of a row we erase the row
+	if((tfp_common_firmware_pointer % (NVMCTRL_ROW_PAGES*TFP_COMMON_BOOTLOADER_WRITE_CHUNK_SIZE)) == 0) {
+		tinynvm_erase_row(BOOTLOADER_FIRMWARE_START_POS + tfp_common_firmware_pointer);
 	}
 
-	tinynvm_write_buffer(tfp_common_firmware_pointer, data->data, TFP_COMMON_BOOTLOADER_WRITE_CHUNK_SIZE);
+	tinynvm_write_page(BOOTLOADER_FIRMWARE_START_POS + tfp_common_firmware_pointer, data->data);
+
 	wfr->status = TFP_COMMON_WRITE_FIRMWARE_STATUS_OK;
 
 	return HANDLE_MESSAGE_RETURN_NEW_MESSAGE;
