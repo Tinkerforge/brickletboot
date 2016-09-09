@@ -76,7 +76,7 @@ Optinal Improvement:
 #define SPITFP_MIN_TFP_MESSAGE_LENGTH (TFP_MESSAGE_MIN_LENGTH + SPITFP_PROTOCOL_OVERHEAD)
 #define SPITFP_MAX_TFP_MESSAGE_LENGTH (TFP_MESSAGE_MAX_LENGTH + SPITFP_PROTOCOL_OVERHEAD)
 
-static const uint8_t spitfp_dummy_tx_byte = 0;
+static const uint8_t spitfp_dummy_tx_byte = 0x0;
 
 void spitfp_init(SPITFP *st) {
 	st->last_sequence_number_seen = 0;
@@ -192,11 +192,10 @@ void spitfp_enable_tx_dma(SPITFP *st) {
 }
 
 void spitfp_send_ack_and_message(SPITFP *st, uint8_t *data, const uint8_t length) {
-	// TODO: Do we need the additional ACK here in front? Probably not!
-
 	uint8_t checksum = 0;
-	st->buffer_send[0] = length + SPITFP_PROTOCOL_OVERHEAD;
-	PEARSON(checksum, st->buffer_send[0]);
+	st->buffer_send_length = length + SPITFP_PROTOCOL_OVERHEAD;
+	st->buffer_send[0] = st->buffer_send_length;
+	PEARSON(checksum, st->buffer_send_length);
 
 	st->buffer_send[1] = spitfp_get_sequence_byte(st, true);
 	PEARSON(checksum, st->buffer_send[1]);
@@ -208,8 +207,8 @@ void spitfp_send_ack_and_message(SPITFP *st, uint8_t *data, const uint8_t length
 
 	st->buffer_send[length + SPITFP_PROTOCOL_OVERHEAD-1] = checksum;
 
-	st->descriptor_tx.BTCNT.reg = st->buffer_send[0];
-	st->descriptor_tx.SRCADDR.reg = (uint32_t)(st->buffer_send + st->buffer_send[0]);
+	st->descriptor_tx.BTCNT.reg = st->buffer_send_length;
+	st->descriptor_tx.SRCADDR.reg = (uint32_t)(st->buffer_send + st->buffer_send_length);
 
 /*	printf("data:");
 	for(uint8_t i = 0; i < st->buffer_send[0]; i++) {
@@ -236,14 +235,53 @@ void spitfp_send_ack(SPITFP *st) {
 }
 
 bool spitfp_is_send_possible(SPITFP *st) {
-	return st->descriptor_section[TINYDMA_SPITFP_TX_INDEX].DESCADDR.reg == (uint32_t)&st->descriptor_section[TINYDMA_SPITFP_TX_INDEX];
+	return (st->descriptor_section[TINYDMA_SPITFP_TX_INDEX].DESCADDR.reg == (uint32_t)&st->descriptor_section[TINYDMA_SPITFP_TX_INDEX]) &&
+	       (st->buffer_send_length == 0);
+}
+
+void spitfp_handle_spi_errors(SPITFP *st) {
+	if(st->spi_module.hw->SPI.INTFLAG.bit.ERROR) {
+		// Atmel has a #define ENABLE 1 somewhere in the configs,
+		// we need to undef it to use the ENABLE bit
+#undef ENABLE
+		st->spi_module.hw->SPI.CTRLA.bit.ENABLE = 0;
+		while(st->spi_module.hw->SPI.SYNCBUSY.bit.ENABLE);
+		st->spi_module.hw->SPI.CTRLA.bit.ENABLE = 1;
+		while(st->spi_module.hw->SPI.SYNCBUSY.bit.ENABLE);
+#define ENABLE 1
+	}
+}
+
+void spitfp_check_message_send_timeout(SPITFP *st) {
+	// We use a timeout of 0 here, since the master is polling us anyway and it
+	// can handle duplicates through the sequence number we loose nothing by
+	// immediately re-sending the message.
+	if((st->descriptor_section[TINYDMA_SPITFP_TX_INDEX].DESCADDR.reg == (uint32_t)&st->descriptor_section[TINYDMA_SPITFP_TX_INDEX]) && (st->buffer_send_length > 0)) {
+		// We leave the old message the same and try again
+		st->descriptor_tx.BTCNT.reg = st->buffer_send_length;
+		st->descriptor_tx.SRCADDR.reg = (uint32_t)(st->buffer_send + st->buffer_send_length);
+
+		spitfp_enable_tx_dma(st);
+	}
+}
+
+void spitfp_handle_protocol_error(SPITFP *st) {
+	// In case of error we completely empty the ringbuffer
+	uint8_t data;
+	while(ringbuffer_get(&st->ringbuffer_recv, &data));
+	st->state = SPITFP_STATE_START;
 }
 
 void spitfp_tick(BootloaderStatus *bootloader_status) {
+	SPITFP *st = &bootloader_status->st;
 //	tinywdt_reset();
+
+	// Is this necessary here? We already handle this in case of NVMCTRL
 	tfp_common_handle_reset(bootloader_status);
 
-	SPITFP *st = &bootloader_status->st;
+	spitfp_handle_spi_errors(st);
+	spitfp_check_message_send_timeout(st);
+
 	uint8_t message[TFP_MESSAGE_MAX_LENGTH] = {0};
 	uint8_t message_position = 0;
 	uint16_t num_to_remove_from_ringbuffer = 0;
@@ -269,10 +307,15 @@ void spitfp_tick(BootloaderStatus *bootloader_status) {
 					st->state = SPITFP_STATE_ACK_SEQUENCE_NUMBER;
 				} else if(data >= SPITFP_MIN_TFP_MESSAGE_LENGTH && data <= SPITFP_MAX_TFP_MESSAGE_LENGTH) {
 					st->state = SPITFP_STATE_MESSAGE_SEQUENCE_NUMBER;
-				} else {
+				} else if(data == 0) {
 					ringbuffer_remove(&st->ringbuffer_recv, 1);
 					num_to_remove_from_ringbuffer--;
 					break;
+				} else {
+					// If the length is not PROTOCOL_OVERHEAD or within [MIN_TFP_MESSAGE_LENGTH, MAX_TFP_MESSAGE_LENGTH]
+					// or 0, something has gone wrong!
+					spitfp_handle_protocol_error(st);
+					return;
 				}
 
 				data_length = data;
@@ -296,7 +339,8 @@ void spitfp_tick(BootloaderStatus *bootloader_status) {
 				num_to_remove_from_ringbuffer = 0;
 
 				if(checksum != data) {
-					break;
+					spitfp_handle_protocol_error(st);
+					return;
 				}
 
 				uint8_t last_sequence_number_seen_by_master = (data_sequence_number & 0xF0) >> 4;
@@ -331,11 +375,8 @@ void spitfp_tick(BootloaderStatus *bootloader_status) {
 				st->state = SPITFP_STATE_START;
 
 				if(checksum != data) {
-					// If checksum is not correct, we remove the data
-					// TODO: Should we empty the whole buffer here?
-					ringbuffer_remove(&st->ringbuffer_recv, num_to_remove_from_ringbuffer);
-					num_to_remove_from_ringbuffer = 0;
-					break;
+					spitfp_handle_protocol_error(st);
+					return;
 				}
 
 				uint8_t last_sequence_number_seen_by_master = (data_sequence_number & 0xF0) >> 4;

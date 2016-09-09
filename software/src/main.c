@@ -118,6 +118,9 @@ int main() {
 		boot_jump_to_firmware();
 	}
 
+	// TODO: Set LOCK bits during initial flashing (in AUX memory)
+	//       and temporarily remove LOCK bits if in bootloader mode
+
 #if LOGGING_LEVEL != LOGGING_NONE
 	logging_init();
 	logi("Starting brickletboot (version %d.%d.%d)\n\r", BOOTLOADER_VERSION_MAJOR, BOOTLOADER_VERSION_MINOR, BOOTLOADER_VERSION_REVISION);
