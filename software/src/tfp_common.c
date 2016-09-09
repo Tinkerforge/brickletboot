@@ -393,6 +393,15 @@ void tfp_common_handle_reset(BootloaderStatus *bs) {
 }
 
 void tfp_common_handle_message(const void *message, const uint8_t length, BootloaderStatus *bs) {
+	// Do we need to check for UID here? Or do we define that the Brick already checks this?
+#if 0
+	const uint32_t message_uid = tfp_get_fid_from_message(message);
+	if((message_uid != tfp_common_get_uid()) && (message_uid != 0)) {
+		spitfp_send_ack(&bs->st);
+		return;
+	}
+#endif
+
 	// TODO: Wait for ~1 second after startup for CoMCUEnumerate message. If there is none,
 	//       send an "answer" to it anyway
 
@@ -415,7 +424,7 @@ void tfp_common_handle_message(const void *message, const uint8_t length, Bootlo
 		case TFP_COMMON_FID_WRITE_FIRMWARE:             handle_message_return = tfp_common_write_firmware(message, return_message, bs);             break;
 		case TFP_COMMON_FID_SET_STATUS_LED_CONFIG:      handle_message_return = tfp_common_set_status_led_config(message, return_message, bs);      break;
 		case TFP_COMMON_FID_GET_STATUS_LED_CONFIG:      handle_message_return = tfp_common_get_status_led_config(message, return_message, bs);      break;
-//		case TFP_COMMON_FID_GET_CHIP_TEMPERATURE:       handle_message_return = tfp_common_get_chip_temperature(message, return_message);           break;
+		case TFP_COMMON_FID_GET_CHIP_TEMPERATURE:       handle_message_return = tfp_common_get_chip_temperature(message, return_message);           break;
 		case TFP_COMMON_FID_RESET:                      handle_message_return = tfp_common_reset(message, return_message, bs);                      break;
 		case TFP_COMMON_FID_CO_MCU_ENUMERATE:           handle_message_return = tfp_common_co_mcu_enumerate(message, return_message);               break;
 		case TFP_COMMON_FID_ENUMERATE:                  handle_message_return = tfp_common_enumerate(message, return_message);                      break;
