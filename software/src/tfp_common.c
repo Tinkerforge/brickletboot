@@ -431,7 +431,7 @@ void tfp_common_handle_message(const void *message, const uint8_t length, Bootlo
 		case TFP_COMMON_FID_GET_IDENTITY:               handle_message_return = tfp_common_get_identity(message, return_message);                   break;
 		default: {
 			if(bs->boot_mode == BOOT_MODE_FIRMWARE) {
-				handle_message_return = bs->firmware_handle_message_func(message, length);
+				handle_message_return = bs->firmware_handle_message_func(message, return_message);
 			} else {
 				handle_message_return = HANDLE_MESSAGE_RETURN_NOT_SUPPORTED;
 			}
