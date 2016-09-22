@@ -286,7 +286,7 @@ BootloaderHandleMessageReturn tfp_common_get_status_led_config(const TFPCommonGe
 	return HANDLE_MESSAGE_RETURN_NEW_MESSAGE;
 }
 
-
+#if 0
 BootloaderHandleMessageReturn tfp_common_get_chip_temperature(const TFPCommonGetChipTemperature *data, void *_return_message) {
 	TFPCommonGetChipTemperatureReturn *gctr = _return_message;
 	gctr->header = data->header;
@@ -296,6 +296,7 @@ BootloaderHandleMessageReturn tfp_common_get_chip_temperature(const TFPCommonGet
 
 	return HANDLE_MESSAGE_RETURN_NEW_MESSAGE;
 }
+#endif
 
 BootloaderHandleMessageReturn tfp_common_reset(const TFPCommonReset *data, void *_return_message, BootloaderStatus *bs) {
 	if(bs->boot_mode == BOOT_MODE_BOOTLOADER) {
@@ -424,7 +425,9 @@ void tfp_common_handle_message(const void *message, const uint8_t length, Bootlo
 		case TFP_COMMON_FID_WRITE_FIRMWARE:             handle_message_return = tfp_common_write_firmware(message, return_message, bs);             break;
 		case TFP_COMMON_FID_SET_STATUS_LED_CONFIG:      handle_message_return = tfp_common_set_status_led_config(message, return_message, bs);      break;
 		case TFP_COMMON_FID_GET_STATUS_LED_CONFIG:      handle_message_return = tfp_common_get_status_led_config(message, return_message, bs);      break;
+#if 0
 		case TFP_COMMON_FID_GET_CHIP_TEMPERATURE:       handle_message_return = tfp_common_get_chip_temperature(message, return_message);           break;
+#endif
 		case TFP_COMMON_FID_RESET:                      handle_message_return = tfp_common_reset(message, return_message, bs);                      break;
 		case TFP_COMMON_FID_CO_MCU_ENUMERATE:           handle_message_return = tfp_common_co_mcu_enumerate(message, return_message);               break;
 		case TFP_COMMON_FID_ENUMERATE:                  handle_message_return = tfp_common_enumerate(message, return_message);                      break;
