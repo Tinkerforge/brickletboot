@@ -85,8 +85,6 @@ void spitfp_init(SPITFP *st) {
 	// Configure ring buffer
 	memset(&st->buffer_recv, 0, SPITFP_RECEIVE_BUFFER_SIZE);
 	ringbuffer_init(&st->ringbuffer_recv, SPITFP_RECEIVE_BUFFER_SIZE, st->buffer_recv);
-	st->descriptor_rx_loop = &st->descriptor_section[TINYDMA_SPITFP_RX_INDEX];
-	st->descriptor_tx_loop = &st->descriptor_section[TINYDMA_SPITFP_TX_INDEX];
 
 	// Configure and enable SERCOM SPI module
 	struct spi_config spitfp_spi_config;
@@ -130,8 +128,8 @@ void spitfp_init(SPITFP *st) {
 	spitfp_descriptor_config_rx.block_transfer_count = SPITFP_RECEIVE_BUFFER_SIZE;
 	spitfp_descriptor_config_rx.destination_address = (uint32_t)(st->buffer_recv + SPITFP_RECEIVE_BUFFER_SIZE);
 	spitfp_descriptor_config_rx.source_address = (uint32_t)(&st->spi_module.hw->SPI.DATA.reg);
-	spitfp_descriptor_config_rx.next_descriptor_address = (uint32_t)st->descriptor_rx_loop;
-	tinydma_descriptor_init(st->descriptor_rx_loop, &spitfp_descriptor_config_rx);
+	spitfp_descriptor_config_rx.next_descriptor_address = (uint32_t)&st->descriptor_section[TINYDMA_SPITFP_RX_INDEX];
+	tinydma_descriptor_init(&st->descriptor_section[TINYDMA_SPITFP_RX_INDEX], &spitfp_descriptor_config_rx);
 
 	// Configure SPI tx descriptor
 	TinyDmaDescriptorConfig spitfp_descriptor_config_tx;
@@ -143,8 +141,8 @@ void spitfp_init(SPITFP *st) {
 	spitfp_descriptor_config_tx.block_action = DMA_BLOCK_ACTION_INT;
 	spitfp_descriptor_config_tx.source_address = (uint32_t)&spitfp_dummy_tx_byte;
 	spitfp_descriptor_config_tx.destination_address = (uint32_t)(&st->spi_module.hw->SPI.DATA.reg);
-	spitfp_descriptor_config_tx.next_descriptor_address = (uint32_t)st->descriptor_tx_loop;
-	tinydma_descriptor_init(st->descriptor_tx_loop, &spitfp_descriptor_config_tx);
+	spitfp_descriptor_config_tx.next_descriptor_address = (uint32_t)&st->descriptor_section[TINYDMA_SPITFP_TX_INDEX];
+	tinydma_descriptor_init(&st->descriptor_section[TINYDMA_SPITFP_TX_INDEX], &spitfp_descriptor_config_tx);
 
 	// Configure SPI ACK descriptor
 	TinyDmaDescriptorConfig spitfp_descriptor_config_ack;
@@ -154,7 +152,7 @@ void spitfp_init(SPITFP *st) {
 	spitfp_descriptor_config_ack.block_transfer_count = SPITFP_PROTOCOL_OVERHEAD;
 	spitfp_descriptor_config_ack.source_address = (uint32_t)(st->buffer_send + SPITFP_PROTOCOL_OVERHEAD);
 	spitfp_descriptor_config_ack.destination_address = (uint32_t)(&st->spi_module.hw->SPI.DATA.reg);
-	spitfp_descriptor_config_ack.next_descriptor_address = (uint32_t)st->descriptor_tx_loop;
+	spitfp_descriptor_config_ack.next_descriptor_address = (uint32_t)&st->descriptor_section[TINYDMA_SPITFP_TX_INDEX];
 	tinydma_descriptor_init(&st->descriptor_tx, &spitfp_descriptor_config_ack);
 
 	// Start dma transfer for rx resource
@@ -187,7 +185,7 @@ void spitfp_enable_tx_dma(SPITFP *st) {
 	DMAC->CHID.reg = DMAC_CHID_ID(TINYDMA_SPITFP_TX_INDEX); // Select tx channel
 	DMAC->CHINTFLAG.reg = DMAC_CHINTFLAG_TCMPL; // Clear pending interrupts
 	DMAC->CHINTENSET.reg = DMAC_CHINTENSET_TCMPL; // Enable transfer complete interrupt
-	st->descriptor_tx_loop->DESCADDR.reg = (uint32_t)&st->descriptor_tx; // Set next descriptor to ACK
+	st->descriptor_section[TINYDMA_SPITFP_TX_INDEX].DESCADDR.reg = (uint32_t)&st->descriptor_tx; // Set next descriptor to ACK
 	cpu_irq_enable();
 }
 
