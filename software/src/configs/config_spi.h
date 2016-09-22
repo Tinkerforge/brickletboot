@@ -22,7 +22,20 @@
 #ifndef CONFIG_SPI_H
 #define CONFIG_SPI_H
 
-// This is defined by firmware we get it directly from the config
-#include "configs/config.h"
+#if __has_include("config_custom_bootloader.h")
+#include "config_custom_bootloader.h"
+#else
+#include "config_default_bootloader.h"
+#endif
+
+
+// --- SPI ---
+#define CONF_SPI_SLAVE_ENABLE true
+
+#ifdef FIRMWARE_USES_SPI_MASTER
+#define CONF_SPI_MASTER_ENABLE true
+#else
+#define CONF_SPI_MASTER_ENABLE false
+#endif
 
 #endif

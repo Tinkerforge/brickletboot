@@ -19,10 +19,8 @@
  * Boston, MA 02111-1307, USA.
  */
 
-#ifndef CONFIG_H
-#define CONFIG_H
-
-
+#ifndef CONFIG_BOOTLOADER_H
+#define CONFIG_BOOTLOADER_H
 
 #if __has_include("config_custom_bootloader.h")
 #include "config_custom_bootloader.h"
